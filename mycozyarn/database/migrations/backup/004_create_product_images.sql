@@ -1,0 +1,1 @@
+-- SQL migration for product_images table

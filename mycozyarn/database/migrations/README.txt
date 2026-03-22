@@ -1,0 +1,1 @@
+Đã chuyển migrations SQL sang thư mục php để chuẩn Laravel. Giữ lại file SQL để tham khảo.

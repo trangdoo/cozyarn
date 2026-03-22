@@ -1,0 +1,1 @@
+<!-- // TODO: Main application layout (Include header, footer, and @yield('content')) -->

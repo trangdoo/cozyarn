@@ -1,0 +1,1 @@
+-- SQL seeder for cart_items table

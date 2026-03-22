@@ -1,0 +1,1 @@
+-- SQL migration for cart_items table

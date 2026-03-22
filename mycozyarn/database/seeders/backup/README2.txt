@@ -1,0 +1,1 @@
+Đã chuyển các file seeders SQL sang thư mục backup để chuẩn Laravel.

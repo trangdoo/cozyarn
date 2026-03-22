@@ -1,0 +1,1 @@
+-- SQL seeder for categories table

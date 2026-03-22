@@ -1,0 +1,1 @@
+Đã chuyển toàn bộ view ra khỏi thư mục views/views để chuẩn Laravel. Giữ lại bản cũ để tham khảo.
