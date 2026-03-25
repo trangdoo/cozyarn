@@ -1,8 +1,14 @@
 <?php
 
 namespace App\Http\Requests\Auth;
-
-class LoginRequest
+use Illuminate\Foundation\Http\FormRequest;
+class LoginRequest extends FormRequest
 {
-    //todo: Implement LoginRequest validation rules
+    public function authorize()  { return true;}
+        
+    public function rules()  {
+        return ['email'=>'required|email',
+        'password'=>'required|min:6',
+        'remember'=>'nullable|boolean'];
+    }
 }

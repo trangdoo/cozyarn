@@ -1,0 +1,1 @@
+<!-- // TODO: Footer component (Quick links, Social Media, Copyright) -->
