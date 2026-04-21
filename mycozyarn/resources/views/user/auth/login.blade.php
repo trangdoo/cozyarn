@@ -140,4 +140,30 @@
         </div>
     </div>
 </section>
+
+<script>
+(() => {
+    // Nếu browser đã hỗ trợ cross-document View Transitions, CSS tự lo.
+    if ('startViewTransition' in document || CSS.supports('view-transition-name', 'a')) {
+        // vẫn cần preload cho Firefox: fallback JS xử lý nếu VT chưa thực sự chạy
+    }
+    const card = document.querySelector('.auth-card');
+    if (!card) return;
+
+    document.querySelectorAll('.auth-tabs a').forEach(a => {
+        a.addEventListener('click', (e) => {
+            // để Ctrl/Cmd/middle-click mở tab mới như bình thường
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+            // chỉ intercept khi điều hướng tới trang auth khác
+            const href = a.getAttribute('href');
+            if (!href || href === window.location.pathname) return;
+            e.preventDefault();
+            card.classList.add('is-leaving');
+            card.addEventListener('animationend', () => {
+                window.location.href = href;
+            }, { once: true });
+        });
+    });
+})();
+</script>
 @endsection

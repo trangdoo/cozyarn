@@ -1,50 +1,83 @@
 <?php
 
 namespace App\Http\Controllers;
+
 use App\Http\Requests\Auth\LoginRequest;
-use App\Http\Requests\RegisterRequest;
+use App\Http\Requests\Auth\RegisterRequest;
 use App\Models\User;
-use Illuminate\Auth\Events\Attempting;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Redirect;
 
-
-class AuthController extends Controller{
-    public function showLoginForm()  {
+class AuthController extends Controller
+{
+    public function showLoginForm()
+    {
+        if (Auth::check()) {
+            return redirect('/');
+        }
         return view('user.auth.login');
     }
-    public function showRegisterForm()  {
+
+    public function showRegisterForm()
+    {
+        if (Auth::check()) {
+            return redirect('/');
+        }
         return view('user.auth.register');
     }
-    public function login(LoginRequest $req)
+
+    public function login(LoginRequest $request)
     {
-        $cre = $req -> only('email','password');
-        $remember =(bool)$req->input('remember',false);
-        if(Auth::attempt($cre,$remember))
-            {
-                $req->session() -> regenerate();
-                return redirect()->intended('/');
+        $credentials = $request->only('email', 'password');
+        $remember    = (bool) $request->input('remember', false);
+
+        // Báo lỗi rõ ràng hơn khi tài khoản bị khoá
+        $user = User::where('email', $credentials['email'])->first();
+        if ($user && ($user->status ?? 'active') === 'blocked') {
+            return back()
+                ->withErrors(['email' => 'Tài khoản đã bị khoá. Vui lòng liên hệ shop để biết thêm chi tiết.'])
+                ->withInput($request->only('email'));
+        }
+
+        if (Auth::attempt($credentials, $remember)) {
+            $request->session()->regenerate();
+
+            // Admin vào dashboard, user về trang chủ
+            if (Auth::user()->isAdmin()) {
+                return redirect()->intended('/admin');
             }
-    return back()->withErrors(['email'=>'Email hoặc mật khẩu không đúng'])->withInput();
+            return redirect()->intended('/');
+        }
+
+        return back()
+            ->withErrors(['email' => 'Email hoặc mật khẩu không đúng.'])
+            ->withInput($request->only('email'));
     }
 
-    public function register(RegisterRequest $request){
-    $user = User::create([
-      'name'=>$request->name,
-      'email'=>$request->email,
-      'password'=>Hash::make($request->password),
-    ]);
-    Auth::login($user);
-    return redirect('/');
-  }
+    public function register(RegisterRequest $request)
+    {
+        // Password được auto-hash qua cast 'password' => 'hashed' trong User model
+        $user = User::create([
+            'name'     => trim((string) $request->input('name')),
+            'email'    => strtolower(trim((string) $request->input('email'))),
+            'password' => (string) $request->input('password'),
+            'phone'    => $request->input('phone'),
+            'role'     => 'user',
+            'status'   => 'active',
+        ]);
 
-  public function logout(Request $request){
-    Auth::logout();
-    $request->session()->invalidate();
-    $request->session()->regenerateToken();
-    return redirect('user.home');
-  }
+        Auth::login($user);
+        $request->session()->regenerate();
+
+        return redirect('/')->with('cart_flash', "Chào mừng {$user->name} đến với CozyYarn!");
+    }
+
+    public function logout(Request $request)
+    {
+        Auth::logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
+        return redirect('/')->with('cart_flash', 'Bạn đã đăng xuất.');
+    }
 }

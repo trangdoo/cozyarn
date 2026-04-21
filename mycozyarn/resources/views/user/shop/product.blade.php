@@ -203,16 +203,26 @@
                     </div>
                 </div>
 
-                <div class="pd-actions">
-                    <button type="button" class="pd-btn pd-btn--cart">
+                <form method="POST" action="{{ route('cart.add') }}" class="pd-actions" data-cart-form>
+                    @csrf
+                    <input type="hidden" name="category" value="{{ $category['slug'] }}">
+                    <input type="hidden" name="slug" value="{{ $product['slug'] }}">
+                    <input type="hidden" name="name" value="{{ $product['name'] }}">
+                    <input type="hidden" name="image" value="{{ $product['image'] }}">
+                    <input type="hidden" name="price" value="{{ $product['price'] }}">
+                    <input type="hidden" name="variant" value="{{ $product['variants'][0]['label'] ?? '' }}" data-cart-variant>
+                    <input type="hidden" name="size"    value="{{ $product['sizes'][0] ?? '' }}" data-cart-size>
+                    <input type="hidden" name="qty"     value="1" data-cart-qty>
+
+                    <button type="submit" class="pd-btn pd-btn--cart">
                         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="9" cy="20" r="1.6" fill="currentColor"/><circle cx="18" cy="20" r="1.6" fill="currentColor"/><path d="M3 4h2l2.2 10.3a1 1 0 0 0 1 .7h9.8a1 1 0 0 0 1-.8L21 8H7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
                         Thêm vào giỏ
                     </button>
-                    <button type="button" class="pd-btn pd-btn--buy">Mua ngay</button>
+                    <button type="submit" class="pd-btn pd-btn--buy" formaction="{{ route('checkout.buyNow') }}">Mua ngay</button>
                     <button type="button" class="pd-btn pd-btn--wish" aria-label="Yêu thích">
                         <svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6C19 16.5 12 21 12 21z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
                     </button>
-                </div>
+                </form>
 
                 <ul class="pd-features">
                     @foreach($product['features'] as $feat)
@@ -594,6 +604,29 @@
     }
 
     apply();
+})();
+
+// --- Sync variant/size/qty vào form "Thêm vào giỏ" trước khi submit ---
+(() => {
+    const form = document.querySelector('[data-cart-form]');
+    if (!form) return;
+
+    const variantInput = form.querySelector('[data-cart-variant]');
+    const sizeInput    = form.querySelector('[data-cart-size]');
+    const qtyInput     = form.querySelector('[data-cart-qty]');
+
+    form.addEventListener('submit', () => {
+        const variantEl = document.querySelector('.pd-swatch.is-selected .pd-swatch__label');
+        const sizeEl    = document.querySelector('.pd-size.is-selected');
+        const qtyEl     = document.getElementById('pdQtyInput');
+
+        if (variantInput) variantInput.value = variantEl?.textContent?.trim() || variantInput.value;
+        if (sizeInput)    sizeInput.value    = sizeEl?.textContent?.trim()    || '';
+        if (qtyInput) {
+            const q = parseInt(qtyEl?.value || '1', 10);
+            qtyInput.value = (isNaN(q) || q < 1) ? 1 : Math.min(q, 99);
+        }
+    });
 })();
 </script>
 @endsection

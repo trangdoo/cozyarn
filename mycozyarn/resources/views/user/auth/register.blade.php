@@ -158,4 +158,24 @@
         </div>
     </div>
 </section>
+
+<script>
+(() => {
+    const card = document.querySelector('.auth-card');
+    if (!card) return;
+
+    document.querySelectorAll('.auth-tabs a').forEach(a => {
+        a.addEventListener('click', (e) => {
+            if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return;
+            const href = a.getAttribute('href');
+            if (!href || href === window.location.pathname) return;
+            e.preventDefault();
+            card.classList.add('is-leaving');
+            card.addEventListener('animationend', () => {
+                window.location.href = href;
+            }, { once: true });
+        });
+    });
+})();
+</script>
 @endsection

@@ -8,47 +8,7 @@
 </head>
 <body>
     <main class="home-page">
-        <header class="site-header">
-            <div class="site-header__inner">
-                <div class="top-nav">
-                    <a href="#" class="brand-wrap">
-                        <img class="brand-avatar" src="/images/avartar.jpg" alt="CozyYarn">
-                        <span class="brand">CozyYarn</span>
-                    </a>
-                    <nav class="menu" data-nav>
-                        <a href="#home" data-section="home" class="active">Home</a>
-                        <a href="/shop">Shop</a>
-                        <a href="/blog">Blog</a>
-                        <a href="#about" data-section="about">About us</a>
-                        <a href="#contact" data-section="contact">Contact</a>
-                    </nav>
-                    <div class="header-actions">
-                        <a href="#" class="action-pill">
-                            <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
-                                <circle cx="11" cy="11" r="7"></circle>
-                                <line x1="16.65" y1="16.65" x2="21" y2="21"></line>
-                            </svg>
-                            <span>Tìm kiếm</span>
-                        </a>
-                        <a href="#" class="action-pill">
-                            <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
-                                <circle cx="12" cy="8" r="4"></circle>
-                                <path d="M4 20c1.7-3.4 5-5 8-5s6.3 1.6 8 5"></path>
-                            </svg>
-                            <span>Tài khoản</span>
-                        </a>
-                        <a href="#" class="action-pill">
-                            <svg class="action-icon" viewBox="0 0 24 24" aria-hidden="true">
-                                <circle cx="9" cy="20" r="1.5"></circle>
-                                <circle cx="18" cy="20" r="1.5"></circle>
-                                <path d="M3 4h2l2.2 10.3a1 1 0 0 0 1 .7h9.8a1 1 0 0 0 1-.8L21 8H7"></path>
-                            </svg>
-                            <span>Giỏ hàng</span>
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </header>
+        @include('partials.site-header', ['isHome' => true])
 
         <section class="home-carousel" id="home">
             <div class="carousel-viewport">
@@ -131,7 +91,7 @@
                 </div>
                 <p class="tagline-sub">Chào mừng bạn đến với CozyYarn</p>
                 <p class="shop-tagline">
-                    Tiệm len handmade nhỏ xinh — nơi mỗi cuộn len<br>
+                    Tiệm len handmade nhỏ xinh - nơi mỗi cuộn len<br>
                     được chọn lọc kỹ càng để mang đến sự ấm áp<br>
                     và cảm hứng sáng tạo cho bạn.
                 </p>
@@ -167,99 +127,25 @@
                 <div class="bs-slider-wrap">
                 <button class="bs-nav bs-nav--prev" aria-label="Trang trước">‹</button>
                 <div class="bs-grid" data-bs-grid>
-                    <article class="bs-card" data-category="yarn">
+                    @foreach(($featured ?? []) as $p)
+                    <article class="bs-card" data-category="{{ $p['data_cat'] }}">
                         <div class="bs-card__img">
-                            <img src="/images/2.jpg" alt="Len Mohair Mỏng Ánh Kim">
-                            <span class="bs-card__tag">Hot</span>
+                            <img src="{{ $p['image'] }}" alt="{{ $p['name'] }}">
+                            @if(!empty($p['badge']))
+                                <span class="bs-card__tag">{{ $p['badge'] }}</span>
+                            @endif
                             <span class="bs-card__img-shine" aria-hidden="true"></span>
                         </div>
                         <div class="bs-card__body">
-                            <h3 class="bs-card__name">Len Cotton Mềm Mại Pastel</h3>
-                            <p class="bs-card__desc">Len cotton 100% tự nhiên, màu pastel nhẹ nhàng, phù hợp đan áo, thú bông và phụ kiện mùa hè.</p>
+                            <h3 class="bs-card__name">{{ $p['name'] }}</h3>
+                            <p class="bs-card__desc">{{ $p['shortDesc'] }}</p>
                             <div class="bs-card__footer">
-                                <span class="bs-card__price">85.000 ₫</span>
-                                <a href="#" class="bs-card__btn">Xem ngay</a>
+                                <span class="bs-card__price">{{ number_format($p['price'], 0, ',', '.') }} ₫</span>
+                                <a href="{{ route('shop.product', ['category' => $p['category_slug'], 'product' => $p['slug']]) }}" class="bs-card__btn">Xem ngay</a>
                             </div>
                         </div>
                     </article>
-
-                    <article class="bs-card" data-category="yarn">
-                        <div class="bs-card__img">
-                            <img src="/images/3.jpg" alt="Len Mohair Mỏng Ánh Kim">
-                            <span class="bs-card__tag">Mới</span>
-                            <span class="bs-card__img-shine" aria-hidden="true"></span>
-                        </div>
-                        <div class="bs-card__body">
-                            <h3 class="bs-card__name">Len Sợi Gradient Ombre</h3>
-                            <p class="bs-card__desc">Cuộn len chuyển màu tự nhiên, tạo hiệu ứng ombre đẹp mắt mà không cần đổi chỉ khi đan.</p>
-                            <div class="bs-card__footer">
-                                <span class="bs-card__price">120.000 ₫</span>
-                                <a href="#" class="bs-card__btn">Xem ngay</a>
-                            </div>
-                        </div>
-                    </article>
-
-                    <article class="bs-card" data-category="tools">
-                        <div class="bs-card__img">
-                            <img src="/images/4.jpg" alt="Len Mohair Mỏng Ánh Kim">
-                            <span class="bs-card__img-shine" aria-hidden="true"></span>
-                        </div>
-                        <div class="bs-card__body">
-                            <h3 class="bs-card__name">Bộ Kim Đan Inox 9 Cây</h3>
-                            <p class="bs-card__desc">Kim đan inox cao cấp, đầu nhẵn bóng, không rỉ sét — đủ size từ 2mm đến 6mm cho mọi loại len.</p>
-                            <div class="bs-card__footer">
-                                <span class="bs-card__price">95.000 ₫</span>
-                                <a href="#" class="bs-card__btn">Xem ngay</a>
-                            </div>
-                        </div>
-                    </article>
-
-                    <article class="bs-card" data-category="kits">
-                        <div class="bs-card__img">
-                            <img src="/images/5.jpg" alt="Len Mohair Mỏng Ánh Kim">
-                            <span class="bs-card__tag">Sale</span>
-                            <span class="bs-card__img-shine" aria-hidden="true"></span>
-                        </div>
-                        <div class="bs-card__body">
-                            <h3 class="bs-card__name">Starter Kit Thú Bông Gấu</h3>
-                            <p class="bs-card__desc">Bộ kit đầy đủ len, kim, mắt thú và hướng dẫn móc gấu bông dễ thương — quà tặng hoàn hảo.</p>
-                            <div class="bs-card__footer">
-                                <span class="bs-card__price">210.000 ₫</span>
-                                <a href="#" class="bs-card__btn">Xem ngay</a>
-                            </div>
-                        </div>
-                    </article>
-
-                    <article class="bs-card" data-category="yarn">
-                        <div class="bs-card__img">
-                            <img src="/images/1.jpg" alt="Len Mohair Mỏng Ánh Kim">
-                            <span class="bs-card__img-shine" aria-hidden="true"></span>
-                        </div>
-                        <div class="bs-card__body">
-                            <h3 class="bs-card__name">Len Mohair Mỏng Ánh Kim</h3>
-                            <p class="bs-card__desc">Len mohair siêu nhẹ, ánh lấp lánh tinh tế — lý tưởng để layer cùng len khác tạo chiều sâu.</p>
-                            <div class="bs-card__footer">
-                                <span class="bs-card__price">145.000 ₫</span>
-                                <a href="#" class="bs-card__btn">Xem ngay</a>
-                            </div>
-                        </div>
-                    </article>
-
-                    <article class="bs-card" data-category="tools">
-                        <div class="bs-card__img">
-                            <img src="/images/6.jpg" alt="Len Mohair Mỏng Ánh Kim">
-                            <span class="bs-card__tag">Hot</span>
-                            <span class="bs-card__img-shine" aria-hidden="true"></span>
-                        </div>
-                        <div class="bs-card__body">
-                            <h3 class="bs-card__name">Móc Ergonomic Tay Gỗ</h3>
-                            <p class="bs-card__desc">Móc len tay cầm gỗ chống mỏi, đầu nhựa ABS trơn láng — bạn đồng hành lý tưởng cho buổi móc dài.</p>
-                            <div class="bs-card__footer">
-                                <span class="bs-card__price">65.000 ₫</span>
-                                <a href="#" class="bs-card__btn">Xem ngay</a>
-                            </div>
-                        </div>
-                    </article>
+                    @endforeach
                 </div>
                 <button class="bs-nav bs-nav--next" aria-label="Trang tiếp">›</button>
                 </div>
@@ -301,7 +187,7 @@
                         <div class="au-founder__info">
                             <span class="au-founder__name">Chan Doo</span>
                             <span class="au-founder__role">Founder &amp; Creative Director</span>
-                            <p class="au-founder__quote">"Mỗi cuộn len là một câu chuyện — tôi ở đây để giúp bạn kể câu chuyện của mình."</p>
+                            <p class="au-founder__quote">"Mỗi cuộn len là một câu chuyện - tôi ở đây để giúp bạn kể câu chuyện của mình."</p>
                         </div>
                     </div>
                 </div>
@@ -311,7 +197,7 @@
                         <span class="au-label">Câu chuyện</span>
                         <h3 class="au-right-title">Được tạo ra từ<br>tình yêu &amp; sợi len</h3>
                         <p class="au-right-text">CozyYarn bắt đầu từ một góc nhỏ trong căn phòng của một cô gái yêu thích đan móc. Từ những cuộn len đầu tiên được chọn lọc kỹ càng, chúng tôi dần trở thành ngôi nhà chung của cộng đồng yêu handmade.</p>
-                        <p class="au-right-text">Dù bạn là người mới hay thợ lâu năm — CozyYarn luôn có thứ gì đó dành riêng cho bạn.</p>
+                        <p class="au-right-text">Dù bạn là người mới hay thợ lâu năm - CozyYarn luôn có thứ gì đó dành riêng cho bạn.</p>
                         <ul class="au-values">
                             <li>
                                 <svg viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="8" fill="currentColor" opacity="0.12"/><path d="M5.5 9 L7.5 11 L12.5 6.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -450,7 +336,7 @@
                             </svg>
                         </div>
                         <h3>Giá cả minh bạch</h3>
-                        <p>Không phí ẩn, không markup vô lý. Chất lượng tốt với mức giá hợp lý cho mọi người — từ người mới bắt đầu đến thợ thủ công lâu năm.</p>
+                        <p>Không phí ẩn, không markup vô lý. Chất lượng tốt với mức giá hợp lý cho mọi người - từ người mới bắt đầu đến thợ thủ công lâu năm.</p>
                     </div>
                     <div class="value-card">
                         <div class="value-card__icon">
@@ -471,7 +357,7 @@
                             </svg>
                         </div>
                         <h3>Cộng đồng ấm áp</h3>
-                        <p>Không chỉ bán hàng — chúng tôi xây dựng cộng đồng handmade. Chia sẻ mẫu, hỏi kỹ thuật, tìm bạn cùng đam mê.</p>
+                        <p>Không chỉ bán hàng - chúng tôi xây dựng cộng đồng handmade. Chia sẻ mẫu, hỏi kỹ thuật, tìm bạn cùng đam mê.</p>
                     </div>
                 </div>
             </div>
@@ -524,7 +410,7 @@
 
                     <span class="section-chip">Đánh giá</span>
                     <h2 class="reviews-heading">Khách hàng<br>nói gì về chúng tôi</h2>
-                    <p class="reviews-sub">Mỗi cuộn len là một tình yêu — hàng nghìn bạn đã tin tưởng CozyYarn cho từng dự án thủ công của mình.</p>
+                    <p class="reviews-sub">Mỗi cuộn len là một tình yêu - hàng nghìn bạn đã tin tưởng CozyYarn cho từng dự án thủ công của mình.</p>
 
                     {{-- Rating summary badge --}}
                     <div class="rv-rating-badge">
@@ -537,7 +423,7 @@
 
                     {{-- Mini trust pills --}}
                     <div class="rv-trust-pills">
-                        <span class="rv-pill">✓ Hàng chính hãng</span>
+                        <span class="rv-pill">✓ Hàng chất lượng</span>
                         <span class="rv-pill">✓ Đổi trả dễ dàng</span>
                     </div>
                 </div>
@@ -748,7 +634,7 @@
                             <svg viewBox="0 0 24 24" fill="none"><path d="M6.6 10.8a15.4 15.4 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.5 11.5 0 0 0 3.6.6 1 1 0 0 1 1 1V18a1 1 0 0 1-1 1A17 17 0 0 1 3 5a1 1 0 0 1 1-1h2.5a1 1 0 0 1 1 1c0 1.25.2 2.45.6 3.6a1 1 0 0 1-.25 1L6.6 10.8Z" stroke="currentColor" stroke-width="1.8"/></svg>
                         </div>
                         <span class="ci-label">Điện thoại</span>
-                        <span class="ci-val">0123.456.789</span>
+                        <span class="ci-val">0346543266</span>
                         <p class="ci-desc">Thứ 2 – Thứ 7, 8:00 – 20:00</p>
                     </div>
                     <div class="ci-card">
@@ -756,7 +642,7 @@
                             <svg viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="20" height="14" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M2 8 L12 14 L22 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
                         </div>
                         <span class="ci-label">Email</span>
-                        <span class="ci-val">hello@cozyyarn.vn</span>
+                        <span class="ci-val">trangsocute2908@gmail.com</span>
                         <p class="ci-desc">Phản hồi trong vòng 24 giờ</p>
                     </div>
                     <div class="ci-card">
@@ -794,7 +680,7 @@
                                 <span class="ft-brand__tag">Handmade · Pastel · Cozy</span>
                             </span>
                         </a>
-                        <p class="ft-about">Tiệm len handmade nhỏ xinh — nơi mỗi cuộn len được chọn lọc kỹ càng để mang đến sự ấm áp và cảm hứng sáng tạo cho bạn.</p>
+                        <p class="ft-about">Tiệm len handmade nhỏ xinh - nơi mỗi cuộn len được chọn lọc kỹ càng để mang đến sự ấm áp và cảm hứng sáng tạo cho bạn.</p>
                         <ul class="ft-meta">
                             <li>
                                 <svg viewBox="0 0 24 24" fill="none"><path d="M12 2C8.1 2 5 5.1 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.9-3.1-7-7-7Z" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="9" r="2.5" stroke="currentColor" stroke-width="1.8"/></svg>
@@ -802,11 +688,11 @@
                             </li>
                             <li>
                                 <svg viewBox="0 0 24 24" fill="none"><path d="M6.6 10.8a15.4 15.4 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.5 11.5 0 0 0 3.6.6 1 1 0 0 1 1 1V18a1 1 0 0 1-1 1A17 17 0 0 1 3 5a1 1 0 0 1 1-1h2.5a1 1 0 0 1 1 1c0 1.25.2 2.45.6 3.6a1 1 0 0 1-.25 1L6.6 10.8Z" stroke="currentColor" stroke-width="1.8"/></svg>
-                                0123.456.789
+                                0346543266
                             </li>
                             <li>
                                 <svg viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="20" height="14" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M2 8 L12 14 L22 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-                                hello@cozyyarn.vn
+                                trangsocute2908@gmail.com
                             </li>
                         </ul>
                         <div class="ft-social">

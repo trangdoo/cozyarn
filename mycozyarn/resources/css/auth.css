@@ -3,6 +3,9 @@
    Palette khớp với site: rose pastel #d97b9d, #f5d6e3, #7f4e63
    =========================================================== */
 
+/* Crossfade giữa /login và /register (Chrome/Edge 126+) */
+@view-transition { navigation: auto; }
+
 :root {
     --rose-900: #7f4e63;
     --rose-700: #b55a82;
@@ -80,6 +83,41 @@
     box-shadow: var(--shadow);
     overflow: hidden;
     z-index: 2;
+    /* Browser hỗ trợ View Transitions sẽ morph card theo tên này */
+    view-transition-name: auth-card;
+    animation: auth-card-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.auth-card.is-leaving {
+    animation: auth-card-out 0.32s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes auth-card-in {
+    from { opacity: 0; transform: translateY(18px) scale(0.985); }
+    to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
+@keyframes auth-card-out {
+    from { opacity: 1; transform: translateY(0)    scale(1); }
+    to   { opacity: 0; transform: translateY(-8px) scale(0.985); }
+}
+
+/* Tab nút: hover và swap mượt */
+.auth-tab,
+.auth-tab--ghost {
+    transition: background 0.35s ease,
+                color 0.35s ease,
+                box-shadow 0.35s ease,
+                letter-spacing 0.35s ease,
+                transform 0.35s ease;
+}
+.auth-tab:hover {
+    transform: translateX(-2px);
+    box-shadow: -8px 8px 22px rgba(127, 78, 99, 0.25);
+}
+.auth-tab--ghost:hover {
+    letter-spacing: 3px;
+    transform: translateX(-2px);
 }
 
 /* ------------------- LEFT PANEL ------------------- */
