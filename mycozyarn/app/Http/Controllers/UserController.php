@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class UserController extends Controller
 {
@@ -207,10 +208,47 @@ class UserController extends Controller
             return back()->with('cart_flash', 'Đơn này đã được gửi yêu cầu trả hàng.');
         }
 
+        // Validate: bắt buộc 3 ảnh + 1 video làm bằng chứng
+        $request->validate([
+            'reason'   => 'nullable|string|max:300',
+            'images'   => 'required|array|size:3',
+            'images.*' => 'required|image|mimes:jpg,jpeg,png,webp|max:5120',
+            'video'    => 'required|file|mimetypes:video/mp4,video/quicktime,video/webm,video/x-matroska|max:51200',
+        ], [
+            'images.required'   => 'Vui lòng đính kèm đủ 3 ảnh bằng chứng.',
+            'images.size'       => 'Phải có đúng 3 ảnh bằng chứng.',
+            'images.*.image'    => 'File đính kèm phải là ảnh hợp lệ.',
+            'images.*.mimes'    => 'Ảnh phải có định dạng jpg, png hoặc webp.',
+            'images.*.max'      => 'Mỗi ảnh không vượt quá 5MB.',
+            'video.required'    => 'Vui lòng đính kèm 1 video bằng chứng.',
+            'video.mimetypes'   => 'Video phải có định dạng mp4, mov, webm hoặc mkv.',
+            'video.max'         => 'Video không vượt quá 50MB.',
+        ]);
+
+        // Lưu files vào public/uploads/returns/{orderId}/
+        $dest = public_path("uploads/returns/{$id}");
+        if (!is_dir($dest)) @mkdir($dest, 0755, true);
+
+        $imagePaths = [];
+        foreach ($request->file('images') as $i => $file) {
+            $ext  = strtolower($file->getClientOriginalExtension()) ?: 'jpg';
+            $name = "img-{$i}-" . Str::uuid()->toString() . ".{$ext}";
+            $file->move($dest, $name);
+            $imagePaths[] = "/uploads/returns/{$id}/{$name}";
+        }
+
+        $video     = $request->file('video');
+        $videoExt  = strtolower($video->getClientOriginalExtension()) ?: 'mp4';
+        $videoName = 'video-' . Str::uuid()->toString() . ".{$videoExt}";
+        $video->move($dest, $videoName);
+        $videoPath = "/uploads/returns/{$id}/{$videoName}";
+
         $reason = trim((string) $request->input('reason', ''));
         $orders[$id]['status']         = 'return_requested';
         $orders[$id]['returned_at']    = now()->toDateTimeString();
         $orders[$id]['return_reason']  = $reason !== '' ? $reason : 'Không có lý do cụ thể';
+        $orders[$id]['return_images']  = $imagePaths;
+        $orders[$id]['return_video']   = $videoPath;
         session(['orders' => $orders]);
 
         Notifications::push([

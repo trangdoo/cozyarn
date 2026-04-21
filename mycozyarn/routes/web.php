@@ -94,6 +94,55 @@ Route::get('/', function () {
     return view('user.home.index', ['featured' => $featured]);
 });
 
+Route::get('/blog', function () {
+    $blog = require resource_path('blog.php');
+    $posts = $blog['posts'];
+    usort($posts, fn($a, $b) => strcmp($b['date'], $a['date']));
+
+    $categorySlug = request('category');
+    if ($categorySlug && isset($blog['categories'][$categorySlug])) {
+        $posts = array_values(array_filter($posts, fn($p) => $p['category'] === $categorySlug));
+    }
+
+    $featured = collect($blog['posts'])->firstWhere('featured', true) ?? $blog['posts'][0];
+
+    return view('user.blog.index', [
+        'posts'          => $posts,
+        'featured'       => $featured,
+        'categories'     => $blog['categories'],
+        'activeCategory' => $categorySlug,
+    ]);
+})->name('blog.index');
+
+Route::get('/blog/{slug}', function (string $slug) {
+    $blog = require resource_path('blog.php');
+    $post = collect($blog['posts'])->firstWhere('slug', $slug);
+    abort_unless($post, 404);
+
+    $related = collect($blog['posts'])
+        ->where('slug', '!=', $slug)
+        ->where('category', $post['category'])
+        ->take(3)
+        ->values()
+        ->all();
+    if (count($related) < 3) {
+        $extra = collect($blog['posts'])
+            ->where('slug', '!=', $slug)
+            ->whereNotIn('slug', array_column($related, 'slug'))
+            ->take(3 - count($related))
+            ->values()
+            ->all();
+        $related = array_merge($related, $extra);
+    }
+
+    return view('user.blog.show', [
+        'post'       => $post,
+        'category'   => $blog['categories'][$post['category']] ?? null,
+        'related'    => $related,
+        'categories' => $blog['categories'],
+    ]);
+})->where('slug', '[a-z0-9\-]+')->name('blog.show');
+
 Route::get('/chinh-sach/{slug}', function (string $slug) {
     $policies = require resource_path('policies.php');
     abort_unless(isset($policies[$slug]), 404);

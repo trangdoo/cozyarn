@@ -82,6 +82,24 @@
                                 <br><small>Lý do: {{ $order['return_reason'] }}</small>
                             @endif
                         </div>
+
+                        @if(!empty($order['return_images']) || !empty($order['return_video']))
+                            <div class="od-return__evidence">
+                                <h4>Bằng chứng đã gửi</h4>
+                                <div class="od-return__evidence-grid">
+                                    @foreach($order['return_images'] ?? [] as $img)
+                                        <a href="{{ $img }}" target="_blank" rel="noopener" class="od-return__evidence-item">
+                                            <img src="{{ $img }}" alt="Bằng chứng" loading="lazy">
+                                        </a>
+                                    @endforeach
+                                    @if(!empty($order['return_video']))
+                                        <div class="od-return__evidence-item od-return__evidence-item--video">
+                                            <video src="{{ $order['return_video'] }}" controls preload="metadata"></video>
+                                        </div>
+                                    @endif
+                                </div>
+                            </div>
+                        @endif
                     @elseif($rawStatus === 'received')
                         <div class="cart-alert cart-alert--success" style="text-align:center">
                             ✓ Đã xác nhận nhận hàng
@@ -145,6 +163,8 @@
                             </form>
                             <form method="POST" action="{{ route('user.orders.return', ['id' => $order['id']]) }}"
                                   class="od-action-form"
+                                  enctype="multipart/form-data"
+                                  data-return-form
                                   onsubmit="return confirm('Gửi yêu cầu trả hàng & hoàn tiền cho đơn này?');">
                                 @csrf
                                 <div class="od-action-form__intro">
@@ -156,10 +176,55 @@
                                         <small>Có vấn đề về chất lượng hoặc sai sản phẩm?</small>
                                     </div>
                                 </div>
+
+                                @if($errors->any())
+                                    <div class="od-return__errors">
+                                        @foreach($errors->all() as $err)
+                                            <div>⚠ {{ $err }}</div>
+                                        @endforeach
+                                    </div>
+                                @endif
+
                                 <label for="returnReason">Lý do trả hàng</label>
                                 <textarea id="returnReason" name="reason" rows="2" maxlength="300"
                                           placeholder="VD: Sản phẩm không đúng mô tả, bị lỗi, giao thiếu..."></textarea>
-                                <button type="submit" class="cart-btn cart-btn--warning">Yêu cầu trả hàng & hoàn tiền</button>
+
+                                <div class="od-return__media">
+                                    <label class="od-return__media-label">
+                                        Bằng chứng <span class="od-return__required">(bắt buộc: 3 ảnh + 1 video)</span>
+                                    </label>
+                                    <div class="od-return__slots">
+                                        @for($i = 0; $i < 3; $i++)
+                                            <label class="od-return__slot od-return__slot--image" data-return-slot="image">
+                                                <input type="file" name="images[]" accept="image/jpeg,image/png,image/webp" hidden data-return-image>
+                                                <div class="od-return__slot-empty">
+                                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="11" r="2"/><path d="M21 17l-5-5-9 9"/></svg>
+                                                    <small>Ảnh {{ $i + 1 }}</small>
+                                                </div>
+                                                <div class="od-return__slot-preview" hidden>
+                                                    <img alt="">
+                                                    <button type="button" class="od-return__slot-remove" aria-label="Bỏ ảnh" data-return-slot-remove>×</button>
+                                                </div>
+                                            </label>
+                                        @endfor
+                                        <label class="od-return__slot od-return__slot--video" data-return-slot="video">
+                                            <input type="file" name="video" accept="video/mp4,video/quicktime,video/webm,video/x-matroska" hidden data-return-video>
+                                            <div class="od-return__slot-empty">
+                                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="6" width="14" height="12" rx="2"/><path d="M17 10l4-2v8l-4-2z"/></svg>
+                                                <small>Video</small>
+                                            </div>
+                                            <div class="od-return__slot-preview" hidden>
+                                                <video muted playsinline></video>
+                                                <button type="button" class="od-return__slot-remove" aria-label="Bỏ video" data-return-slot-remove>×</button>
+                                            </div>
+                                        </label>
+                                    </div>
+                                    <small class="od-return__hint">Ảnh ≤ 5MB (jpg/png/webp) · Video ≤ 50MB (mp4/mov/webm/mkv)</small>
+                                </div>
+
+                                <button type="submit" class="cart-btn cart-btn--warning" data-return-submit disabled>
+                                    Yêu cầu trả hàng & hoàn tiền
+                                </button>
                             </form>
                         </div>
                     </section>
@@ -337,6 +402,64 @@
         });
         starRow.addEventListener('mouseleave', () => paint(parseInt(hidden.value, 10)));
     });
+})();
+
+// ═════ Return form: 3 ảnh + 1 video — preview và disable submit đến khi đủ ═════
+(() => {
+    const form = document.querySelector('[data-return-form]');
+    if (!form) return;
+
+    const slots   = form.querySelectorAll('[data-return-slot]');
+    const submit  = form.querySelector('[data-return-submit]');
+
+    const updateSubmitState = () => {
+        const imagesOk = Array.from(form.querySelectorAll('[data-return-image]'))
+            .every(i => i.files && i.files.length === 1);
+        const videoOk = form.querySelector('[data-return-video]').files?.length === 1;
+        submit.disabled = !(imagesOk && videoOk);
+    };
+
+    slots.forEach(slot => {
+        const input    = slot.querySelector('input[type="file"]');
+        const empty    = slot.querySelector('.od-return__slot-empty');
+        const preview  = slot.querySelector('.od-return__slot-preview');
+        const mediaEl  = preview.querySelector('img, video');
+        const removeBtn = preview.querySelector('[data-return-slot-remove]');
+
+        input.addEventListener('change', () => {
+            const file = input.files?.[0];
+            if (!file) {
+                preview.hidden = true;
+                empty.hidden = false;
+                updateSubmitState();
+                return;
+            }
+            const url = URL.createObjectURL(file);
+            if (mediaEl.tagName === 'VIDEO') {
+                mediaEl.src = url;
+            } else {
+                mediaEl.src = url;
+            }
+            empty.hidden = true;
+            preview.hidden = false;
+            slot.classList.add('is-filled');
+            updateSubmitState();
+        });
+
+        removeBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            input.value = '';
+            if (mediaEl.src) URL.revokeObjectURL(mediaEl.src);
+            mediaEl.removeAttribute('src');
+            preview.hidden = true;
+            empty.hidden = false;
+            slot.classList.remove('is-filled');
+            updateSubmitState();
+        });
+    });
+
+    updateSubmitState();
 })();
 </script>
 @endsection
