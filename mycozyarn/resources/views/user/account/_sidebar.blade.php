@@ -38,6 +38,10 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l3.1 6.5 7.1 1-5.2 4.9 1.3 7.1L12 18l-6.3 3.5 1.3-7.1L1.8 9.5l7.1-1z"/></svg>
             Đánh giá của tôi
         </a>
+        <a href="{{ route('blog.liked') }}" class="acc-nav-item @if($active === 'blog_liked') is-active @endif">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6C19 16.5 12 21 12 21z" stroke-linejoin="round"/></svg>
+            Bài viết đã tim
+        </a>
         <form method="POST" action="{{ route('logout') }}" class="acc-nav-form">
             @csrf
             <button type="submit" class="acc-nav-item acc-nav-item--danger">

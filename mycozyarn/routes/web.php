@@ -2,6 +2,7 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BlogController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\CheckoutController;
@@ -57,6 +58,10 @@ Route::middleware('auth')->group(function () {
         ->where('threadId', '[a-zA-Z0-9\-_]+')->name('user.chat.thread');
     Route::post('/tin-nhan/gui',       [ChatController::class, 'send'])->name('user.chat.send');
 
+    Route::post('/blog/{slug}/tim',     [BlogController::class, 'toggleLike'])
+        ->where('slug', '[a-z0-9\-]+')->name('blog.like');
+    Route::get('/bai-viet-da-tim',      [BlogController::class, 'liked'])->name('blog.liked');
+
     Route::get('/thong-bao',                [NotificationController::class, 'index'])->name('user.notifications.index');
     Route::get('/thong-bao/{id}',           [NotificationController::class, 'open'])
         ->where('id', '[A-Z0-9\-]+')->name('user.notifications.open');
@@ -94,54 +99,9 @@ Route::get('/', function () {
     return view('user.home.index', ['featured' => $featured]);
 });
 
-Route::get('/blog', function () {
-    $blog = require resource_path('blog.php');
-    $posts = $blog['posts'];
-    usort($posts, fn($a, $b) => strcmp($b['date'], $a['date']));
-
-    $categorySlug = request('category');
-    if ($categorySlug && isset($blog['categories'][$categorySlug])) {
-        $posts = array_values(array_filter($posts, fn($p) => $p['category'] === $categorySlug));
-    }
-
-    $featured = collect($blog['posts'])->firstWhere('featured', true) ?? $blog['posts'][0];
-
-    return view('user.blog.index', [
-        'posts'          => $posts,
-        'featured'       => $featured,
-        'categories'     => $blog['categories'],
-        'activeCategory' => $categorySlug,
-    ]);
-})->name('blog.index');
-
-Route::get('/blog/{slug}', function (string $slug) {
-    $blog = require resource_path('blog.php');
-    $post = collect($blog['posts'])->firstWhere('slug', $slug);
-    abort_unless($post, 404);
-
-    $related = collect($blog['posts'])
-        ->where('slug', '!=', $slug)
-        ->where('category', $post['category'])
-        ->take(3)
-        ->values()
-        ->all();
-    if (count($related) < 3) {
-        $extra = collect($blog['posts'])
-            ->where('slug', '!=', $slug)
-            ->whereNotIn('slug', array_column($related, 'slug'))
-            ->take(3 - count($related))
-            ->values()
-            ->all();
-        $related = array_merge($related, $extra);
-    }
-
-    return view('user.blog.show', [
-        'post'       => $post,
-        'category'   => $blog['categories'][$post['category']] ?? null,
-        'related'    => $related,
-        'categories' => $blog['categories'],
-    ]);
-})->where('slug', '[a-z0-9\-]+')->name('blog.show');
+Route::get('/blog',                 [BlogController::class, 'index'])->name('blog.index');
+Route::get('/blog/{slug}',          [BlogController::class, 'show'])
+    ->where('slug', '[a-z0-9\-]+')->name('blog.show');
 
 Route::get('/chinh-sach/{slug}', function (string $slug) {
     $policies = require resource_path('policies.php');

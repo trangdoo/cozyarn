@@ -39,7 +39,34 @@
                         </small>
                     </div>
                 </div>
+
+                {{-- Tim action --}}
+                <div class="blog-actions">
+                    @auth
+                        <form method="POST" action="{{ route('blog.like', ['slug' => $post['slug']]) }}" class="blog-actions__form">
+                            @csrf
+                            <button type="submit" class="blog-action blog-action--like @if($isLiked) is-active @endif"
+                                    aria-label="{{ $isLiked ? 'Bỏ tim' : 'Thả tim' }}">
+                                <svg viewBox="0 0 24 24" fill="@if($isLiked) currentColor @else none @endif" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                    <path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6C19 16.5 12 21 12 21z" stroke-linejoin="round"/>
+                                </svg>
+                                <span>{{ $likeCount }}</span>
+                            </button>
+                        </form>
+                    @else
+                        <a href="{{ route('login') }}" class="blog-action blog-action--guest" title="Đăng nhập để thả tim">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                                <path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6C19 16.5 12 21 12 21z" stroke-linejoin="round"/>
+                            </svg>
+                            <span>{{ $likeCount }}</span>
+                        </a>
+                    @endauth
+                </div>
             </div>
+
+            @if(session('cart_flash'))
+                <div class="blog-flash">{{ session('cart_flash') }}</div>
+            @endif
         </header>
 
         <div class="blog-article__cover">
@@ -63,19 +90,6 @@
                 @endforeach
             </div>
         @endif
-
-        <div class="blog-article__share">
-            <span>Thấy bài viết hay? Chia sẻ với bạn bè nhé!</span>
-            <div class="blog-share-btns">
-                <button type="button" class="blog-share-btn" data-copy-url aria-label="Sao chép link">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                        <path d="M10 14a4 4 0 0 1 0-5l3-3a4 4 0 0 1 6 6l-2 2"/>
-                        <path d="M14 10a4 4 0 0 1 0 5l-3 3a4 4 0 0 1-6-6l2-2"/>
-                    </svg>
-                    <span data-copy-label>Sao chép link</span>
-                </button>
-            </div>
-        </div>
 
         {{-- Related posts --}}
         @if(count($related) > 0)
@@ -115,26 +129,4 @@
 
     </div>
 </article>
-
-<script>
-(() => {
-    const btn = document.querySelector('[data-copy-url]');
-    if (!btn) return;
-    const label = btn.querySelector('[data-copy-label]');
-    btn.addEventListener('click', async () => {
-        try {
-            await navigator.clipboard.writeText(window.location.href);
-            const old = label.textContent;
-            label.textContent = 'Đã sao chép!';
-            btn.classList.add('is-copied');
-            setTimeout(() => {
-                label.textContent = old;
-                btn.classList.remove('is-copied');
-            }, 1800);
-        } catch (e) {
-            label.textContent = 'Lỗi';
-        }
-    });
-})();
-</script>
 @endsection

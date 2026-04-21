@@ -96,11 +96,22 @@
                 @else
                     <div class="blog-grid">
                         @foreach($posts as $post)
-                            @php $cat = $categories[$post['category']] ?? null; @endphp
+                            @php
+                                $cat = $categories[$post['category']] ?? null;
+                                $seed = \crc32($post['slug'] . '|like');
+                                $likes = 18 + $seed % 120;
+                                $isLiked = \in_array($post['slug'], $myLikes, true);
+                                if ($isLiked) $likes += 1;
+                            @endphp
                             <article class="blog-card" data-reveal>
                                 <a href="{{ route('blog.show', ['slug' => $post['slug']]) }}" class="blog-card__link">
                                     <div class="blog-card__image">
                                         <img src="{{ $post['cover'] }}" alt="{{ $post['title'] }}" loading="lazy">
+                                        @if($isLiked)
+                                            <span class="blog-card__liked-badge" title="Đã tim">
+                                                <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6C19 16.5 12 21 12 21z" stroke-linejoin="round"/></svg>
+                                            </span>
+                                        @endif
                                     </div>
                                     <div class="blog-card__body">
                                         @if($cat)
@@ -115,7 +126,10 @@
                                             <span class="blog-meta__dot">•</span>
                                             <span>{{ \Carbon\Carbon::parse($post['date'])->translatedFormat('d/m/Y') }}</span>
                                             <span class="blog-meta__dot">•</span>
-                                            <span>{{ $post['read_time'] }} phút</span>
+                                            <span class="blog-card__likes @if($isLiked) is-liked @endif">
+                                                <svg viewBox="0 0 16 16" fill="@if($isLiked) currentColor @else none @endif" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M8 14s-4.5-2.8-6-5.5A3 3 0 0 1 8 4a3 3 0 0 1 6 4.5c-1.5 2.7-6 5.5-6 5.5z" stroke-linejoin="round"/></svg>
+                                                {{ $likes }}
+                                            </span>
                                         </div>
                                     </div>
                                 </a>

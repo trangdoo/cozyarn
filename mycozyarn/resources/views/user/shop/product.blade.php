@@ -101,10 +101,6 @@
 
     $previewCount = 5;
 
-    // ═════ Simulate auth state ═════
-    // Trong hệ thống thật: kiểm tra Auth::check() + order.status='delivered' + order.items has $product
-    $isLoggedIn    = false;  // TODO: Auth::check()
-    $hasPurchased  = false;  // TODO: Order::where('user_id',$uid)->whereHas('items',fn($q)=>$q->where('product_slug',$product['slug']))->where('status','delivered')->exists()
 @endphp
 <section class="product-page">
     <div class="product-page__inner">
@@ -430,30 +426,9 @@
                             </button>
                         </div>
 
-                        {{-- CTA viết đánh giá — chỉ khách đã mua + đã nhận hàng mới được viết --}}
-                        @if($isLoggedIn && $hasPurchased)
-                            <div class="pd-reviews__cta pd-reviews__cta--eligible">
-                                <div class="pd-reviews__cta-icon pd-reviews__cta-icon--ok">
-                                    <svg viewBox="0 0 24 24" fill="none"><path d="M4 12l5 5 11-11" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                                </div>
-                                <div class="pd-reviews__cta-body">
-                                    <strong>Bạn đã mua sản phẩm này</strong>
-                                    <p>Hãy chia sẻ cảm nhận để giúp khách hàng khác nhé!</p>
-                                </div>
-                                <button type="button" class="pd-btn pd-btn--buy pd-reviews__cta-btn">Viết đánh giá</button>
-                            </div>
-                        @elseif($isLoggedIn && !$hasPurchased)
-                            <div class="pd-reviews__cta pd-reviews__cta--locked">
-                                <div class="pd-reviews__cta-icon">
-                                    <svg viewBox="0 0 24 24" fill="none"><rect x="5" y="11" width="14" height="9" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 11V8a4 4 0 1 1 8 0v3" stroke="currentColor" stroke-width="1.8"/></svg>
-                                </div>
-                                <div class="pd-reviews__cta-body">
-                                    <strong>Chỉ khách đã mua mới được viết đánh giá</strong>
-                                    <p>Sau khi bạn mua và nhận hàng thành công, ô viết đánh giá sẽ tự mở.</p>
-                                </div>
-                                <a href="#" class="pd-btn pd-btn--cart pd-reviews__cta-btn">Xem sản phẩm</a>
-                            </div>
-                        @else
+                        {{-- CTA chỉ hiện cho guest — khuyến khích đăng nhập.
+                             User đã đăng nhập viết đánh giá ở trang chi tiết đơn hàng đã giao. --}}
+                        @guest
                             <div class="pd-reviews__cta pd-reviews__cta--locked">
                                 <div class="pd-reviews__cta-icon">
                                     <svg viewBox="0 0 24 24" fill="none"><rect x="5" y="11" width="14" height="9" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 11V8a4 4 0 1 1 8 0v3" stroke="currentColor" stroke-width="1.8"/></svg>
@@ -464,7 +439,7 @@
                                 </div>
                                 <a href="{{ route('login') }}" class="pd-btn pd-btn--buy pd-reviews__cta-btn">Đăng nhập</a>
                             </div>
-                        @endif
+                        @endguest
                     </div>
                 </div>
             </div>
