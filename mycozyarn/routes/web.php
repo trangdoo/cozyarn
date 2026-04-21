@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CartController;
+use App\Http\Controllers\ChatController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\SearchController;
@@ -34,12 +35,26 @@ Route::middleware('auth')->group(function () {
     Route::patch('/tai-khoan',         [UserController::class, 'updateProfile'])->name('user.profile.update');
     Route::patch('/tai-khoan/mat-khau',[UserController::class, 'updatePassword'])->name('user.password.update');
     Route::get('/don-hang',            [UserController::class, 'orders'])->name('user.orders');
+    Route::get('/don-hang/hoan-tat',   [UserController::class, 'completedOrders'])->name('user.orders.completed');
+    Route::get('/don-hang/da-huy',     [UserController::class, 'cancelledOrders'])->name('user.orders.cancelled');
+    Route::get('/don-hang/tra-hang',   [UserController::class, 'returnedOrders'])->name('user.orders.returned');
     Route::get('/don-hang/{id}',       [UserController::class, 'orderShow'])
         ->where('id', '[A-Z0-9]+')->name('user.orders.show');
+    Route::post('/don-hang/{id}/huy',         [UserController::class, 'cancelOrder'])
+        ->where('id', '[A-Z0-9]+')->name('user.orders.cancel');
+    Route::post('/don-hang/{id}/tra-hang',    [UserController::class, 'requestReturn'])
+        ->where('id', '[A-Z0-9]+')->name('user.orders.return');
+    Route::post('/don-hang/{id}/xac-nhan',    [UserController::class, 'confirmReceived'])
+        ->where('id', '[A-Z0-9]+')->name('user.orders.confirm');
 
     Route::get('/danh-gia-cua-toi',    [ReviewController::class, 'myReviews'])->name('user.reviews');
     Route::post('/danh-gia',           [ReviewController::class, 'store'])->name('user.reviews.store');
     Route::delete('/danh-gia',         [ReviewController::class, 'destroy'])->name('user.reviews.destroy');
+
+    Route::get('/tin-nhan',            [ChatController::class, 'inbox'])->name('user.chat.inbox');
+    Route::get('/tin-nhan/{threadId}', [ChatController::class, 'thread'])
+        ->where('threadId', '[a-zA-Z0-9\-_]+')->name('user.chat.thread');
+    Route::post('/tin-nhan/gui',       [ChatController::class, 'send'])->name('user.chat.send');
 });
 
 Route::get('/', function () {

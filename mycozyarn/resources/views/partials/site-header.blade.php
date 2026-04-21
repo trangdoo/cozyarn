@@ -86,6 +86,16 @@
                         <span class="cart-badge">{{ $cartCount > 99 ? '99+' : $cartCount }}</span>
                     @endif
                 </a>
+
+                {{-- CHAT WITH SHOP --}}
+                @auth
+                    <a href="{{ route('user.chat.inbox') }}" class="action-pill action-pill--chat" aria-label="Tin nhắn với shop">
+                        <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                            <path d="M4 5h16v12H8l-4 4V5z" stroke-linejoin="round"/>
+                        </svg>
+                        <span>Tin nhắn</span>
+                    </a>
+                @endauth
             </div>
         </div>
 

@@ -5,21 +5,30 @@
 @php
     use App\Support\OrderTimeline;
     $statusMap = [
-        'pending'   => ['Chờ xác nhận',     '#fff6cc', '#9a7a1f'],
-        'placed'    => ['Đã đặt hàng',      '#fff6cc', '#9a7a1f'],
-        'confirmed' => ['Chờ lấy hàng',     '#e0f0ff', '#2c5580'],
-        'shipping'  => ['Chờ giao hàng',    '#fde4ee', '#b55a82'],
-        'delivered' => ['Giao thành công',  '#c3e8d5', '#3d7a52'],
-        'cancelled' => ['Đã huỷ',           '#ffe0e0', '#a63652'],
+        'pending'          => ['Chờ xác nhận',            '#fff6cc', '#9a7a1f'],
+        'placed'           => ['Đã đặt hàng',             '#fff6cc', '#9a7a1f'],
+        'confirmed'        => ['Chờ lấy hàng',            '#e0f0ff', '#2c5580'],
+        'shipping'         => ['Chờ giao hàng',           '#fde4ee', '#b55a82'],
+        'delivered'        => ['Giao thành công',         '#c3e8d5', '#3d7a52'],
+        'received'         => ['Hoàn tất',                '#d4efdb', '#2f6a42'],
+        'cancelled'        => ['Đã huỷ',                  '#ffe0e0', '#a63652'],
+        'return_requested' => ['Đang xử lý hoàn tiền',    '#fff0d9', '#b15e1f'],
+        'returned'         => ['Đã hoàn tiền',            '#e4dcf5', '#5b4ba5'],
     ];
     $payMap = [
         'cod'  => 'Thanh toán khi nhận hàng (COD)',
         'bank' => 'Chuyển khoản ngân hàng',
         'momo' => 'Ví MoMo',
     ];
-    $stageKey = OrderTimeline::currentKey($order);
+    $rawStatus = $order['status'] ?? '';
+    $stageKey  = \in_array($rawStatus, ['cancelled', 'returned', 'return_requested', 'received'], true)
+        ? $rawStatus
+        : OrderTimeline::currentKey($order);
     [$statusText, $statusBg, $statusColor] = $statusMap[$stageKey] ?? $statusMap['pending'];
     $payText = $payMap[$order['payment']] ?? $order['payment'];
+    $canCancel           ??= false;
+    $canReturn           ??= false;
+    $canConfirmReceived  ??= false;
 @endphp
 
 @section('content')
@@ -58,6 +67,27 @@
                     @if($timeline['cancelled'])
                         <div class="cart-alert" style="text-align:center">
                             Đơn hàng đã bị huỷ.
+                            @if(!empty($order['cancel_reason']))
+                                <br><small>Lý do: {{ $order['cancel_reason'] }}</small>
+                            @endif
+                        </div>
+                    @elseif(\in_array($rawStatus, ['returned', 'return_requested'], true))
+                        <div class="cart-alert" style="text-align:center">
+                            @if($rawStatus === 'returned')
+                                Đã hoàn tiền thành công cho đơn hàng này.
+                            @else
+                                Shop đang xử lý yêu cầu trả hàng & hoàn tiền của bạn.
+                            @endif
+                            @if(!empty($order['return_reason']))
+                                <br><small>Lý do: {{ $order['return_reason'] }}</small>
+                            @endif
+                        </div>
+                    @elseif($rawStatus === 'received')
+                        <div class="cart-alert cart-alert--success" style="text-align:center">
+                            ✓ Đã xác nhận nhận hàng
+                            @if(!empty($order['received_at']))
+                                <br><small>Vào {{ \Carbon\Carbon::parse($order['received_at'])->format('H:i · d/m/Y') }}</small>
+                            @endif
                         </div>
                     @else
                         <ol class="timeline" style="--step-count: {{ count($timeline['steps']) }}">
@@ -85,6 +115,73 @@
                         </p>
                     @endif
                 </section>
+
+                @if($canConfirmReceived && $canReturn)
+                    {{-- Khi đơn đã giao: user chọn 1 trong 2 — xác nhận nhận hàng HOẶC trả hàng & hoàn tiền --}}
+                    <section class="co-card od-actions-card od-actions-card--delivered">
+                        <h3 class="co-card__title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12l5 5L20 7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            Đơn đã giao — hãy kiểm tra sản phẩm
+                        </h3>
+                        <p class="od-actions__lead">
+                            Nếu sản phẩm đúng như mô tả, hãy bấm <strong>Đã nhận hàng</strong> để hoàn tất đơn.
+                            Nếu có vấn đề, bạn có thể yêu cầu <strong>trả hàng & hoàn tiền</strong>.
+                        </p>
+                        <div class="od-actions od-actions--split">
+                            <form method="POST" action="{{ route('user.orders.confirm', ['id' => $order['id']]) }}"
+                                  class="od-action-form od-action-form--primary"
+                                  onsubmit="return confirm('Xác nhận bạn đã nhận được hàng đầy đủ và đúng mô tả?');">
+                                @csrf
+                                <div class="od-action-form__intro">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M5 12l5 5L20 7" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                    <div>
+                                        <strong>Đã nhận hàng đầy đủ</strong>
+                                        <small>Hoàn tất đơn và mở ô viết đánh giá.</small>
+                                    </div>
+                                </div>
+                                <button type="submit" class="cart-btn cart-btn--primary">Xác nhận đã nhận hàng</button>
+                            </form>
+                            <form method="POST" action="{{ route('user.orders.return', ['id' => $order['id']]) }}"
+                                  class="od-action-form"
+                                  onsubmit="return confirm('Gửi yêu cầu trả hàng & hoàn tiền cho đơn này?');">
+                                @csrf
+                                <div class="od-action-form__intro">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M3 7l3-3 3 3M6 4v10a4 4 0 0 0 4 4h10" stroke-linecap="round" stroke-linejoin="round"/>
+                                    </svg>
+                                    <div>
+                                        <strong>Trả hàng & hoàn tiền</strong>
+                                        <small>Có vấn đề về chất lượng hoặc sai sản phẩm?</small>
+                                    </div>
+                                </div>
+                                <label for="returnReason">Lý do trả hàng</label>
+                                <textarea id="returnReason" name="reason" rows="2" maxlength="300"
+                                          placeholder="VD: Sản phẩm không đúng mô tả, bị lỗi, giao thiếu..."></textarea>
+                                <button type="submit" class="cart-btn cart-btn--warning">Yêu cầu trả hàng & hoàn tiền</button>
+                            </form>
+                        </div>
+                    </section>
+                @elseif($canCancel)
+                    <section class="co-card od-actions-card">
+                        <h3 class="co-card__title">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L2.4 18a2 2 0 0 0 1.7 3h15.8a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+                            Thao tác
+                        </h3>
+                        <div class="od-actions">
+                            <form method="POST" action="{{ route('user.orders.cancel', ['id' => $order['id']]) }}"
+                                  class="od-action-form"
+                                  onsubmit="return confirm('Bạn chắc chắn muốn huỷ đơn này?');">
+                                @csrf
+                                <label for="cancelReason">Lý do huỷ đơn (tuỳ chọn)</label>
+                                <textarea id="cancelReason" name="reason" rows="2" maxlength="300"
+                                          placeholder="VD: Đặt nhầm sản phẩm, muốn đổi size..."></textarea>
+                                <button type="submit" class="cart-btn cart-btn--danger">Huỷ đơn hàng</button>
+                            </form>
+                        </div>
+                    </section>
+                @endif
 
                 <div class="success-grid">
                     <section class="co-card">

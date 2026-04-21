@@ -20,7 +20,19 @@
         </a>
         <a href="{{ route('user.orders') }}" class="acc-nav-item @if($active === 'orders') is-active @endif">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>
-            Đơn hàng của tôi
+            Đơn đang xử lý
+        </a>
+        <a href="{{ route('user.orders.completed') }}" class="acc-nav-item acc-nav-item--sub @if($active === 'completed') is-active @endif">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Đơn hoàn tất
+        </a>
+        <a href="{{ route('user.orders.cancelled') }}" class="acc-nav-item acc-nav-item--sub @if($active === 'cancelled') is-active @endif">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="9"/><path d="M8 8l8 8M16 8l-8 8" stroke-linecap="round"/></svg>
+            Đơn đã huỷ
+        </a>
+        <a href="{{ route('user.orders.returned') }}" class="acc-nav-item acc-nav-item--sub @if($active === 'returned') is-active @endif">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 7l3-3 3 3M6 4v10a4 4 0 0 0 4 4h10" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Trả hàng / Hoàn tiền
         </a>
         <a href="{{ route('user.reviews') }}" class="acc-nav-item @if($active === 'reviews') is-active @endif">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 2l3.1 6.5 7.1 1-5.2 4.9 1.3 7.1L12 18l-6.3 3.5 1.3-7.1L1.8 9.5l7.1-1z"/></svg>

@@ -232,6 +232,43 @@
                         </li>
                     @endforeach
                 </ul>
+
+                {{-- Chat nhanh với shop về sản phẩm --}}
+                @php
+                    $productThreadId = 'product-' . $category['slug'] . '-' . $product['slug'];
+                @endphp
+                <div class="pd-chat">
+                    <div class="pd-chat__head">
+                        <div class="pd-chat__avatar">C</div>
+                        <div class="pd-chat__info">
+                            <strong>Chat với shop về sản phẩm này</strong>
+                            <small>Phản hồi trong vài phút · {{ $product['name'] }}</small>
+                        </div>
+                    </div>
+                    @auth
+                        <form method="POST" action="{{ route('user.chat.send') }}" class="pd-chat__form">
+                            @csrf
+                            <input type="hidden" name="thread_id" value="{{ $productThreadId }}">
+                            <input type="hidden" name="product[slug]"     value="{{ $product['slug'] }}">
+                            <input type="hidden" name="product[category]" value="{{ $category['slug'] }}">
+                            <input type="hidden" name="product[name]"     value="{{ $product['name'] }}">
+                            <input type="hidden" name="product[image]"    value="{{ $product['image'] }}">
+                            <input type="hidden" name="product[price]"    value="{{ $product['price'] }}">
+                            <textarea name="content" rows="2" required maxlength="2000"
+                                      placeholder="VD: Sản phẩm còn size S không ạ?"></textarea>
+                            <div class="pd-chat__foot">
+                                <a href="{{ route('user.chat.thread', ['threadId' => $productThreadId]) }}"
+                                   class="pd-chat__history">Xem lịch sử chat</a>
+                                <button type="submit" class="pd-btn pd-btn--buy pd-chat__send">Gửi tin nhắn</button>
+                            </div>
+                        </form>
+                    @else
+                        <div class="pd-chat__guest">
+                            <p>Đăng nhập để chat với shop về sản phẩm này.</p>
+                            <a href="{{ route('login') }}" class="pd-btn pd-btn--buy">Đăng nhập</a>
+                        </div>
+                    @endauth
+                </div>
             </div>
         </div>
 
