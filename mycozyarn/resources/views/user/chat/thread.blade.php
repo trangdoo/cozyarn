@@ -42,8 +42,15 @@
                     @if($msg['sender'] === 'shop')
                         <div class="chat-msg__avatar">C</div>
                     @endif
-                    <div class="chat-msg__bubble">
-                        <p>{{ $msg['content'] }}</p>
+                    <div class="chat-msg__bubble @if(!empty($msg['image']) && empty($msg['content'])) chat-msg__bubble--image-only @endif">
+                        @if(!empty($msg['image']))
+                            <a href="{{ $msg['image'] }}" class="chat-msg__image" target="_blank" rel="noopener">
+                                <img src="{{ $msg['image'] }}" alt="Ảnh đính kèm" loading="lazy">
+                            </a>
+                        @endif
+                        @if(!empty($msg['content']))
+                            <p>{{ $msg['content'] }}</p>
+                        @endif
                         <span class="chat-msg__time">
                             {{ \Carbon\Carbon::parse($msg['created_at'])->format('H:i · d/m') }}
                         </span>
@@ -59,17 +66,45 @@
             @endforelse
         </div>
 
-        <form method="POST" action="{{ route('user.chat.send') }}" class="chat-form">
+        @if($errors->any())
+            <div class="chat-form-errors">
+                @foreach($errors->all() as $err)
+                    <div>⚠ {{ $err }}</div>
+                @endforeach
+            </div>
+        @endif
+
+        <form method="POST" action="{{ route('user.chat.send') }}" class="chat-form" enctype="multipart/form-data" data-chat-form>
             @csrf
             <input type="hidden" name="thread_id" value="{{ $threadId }}">
-            <textarea name="content" rows="2" required maxlength="2000"
-                      placeholder="Nhập tin nhắn cho shop..."></textarea>
-            <button type="submit" class="cart-btn cart-btn--primary">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-                    <path d="M4 12l16-8-6 16-3-6-7-2z" stroke-linejoin="round"/>
-                </svg>
-                Gửi
-            </button>
+
+            {{-- Preview ảnh sắp gửi --}}
+            <div class="chat-form__preview" data-chat-preview hidden>
+                <img src="" alt="" data-chat-preview-img>
+                <button type="button" class="chat-form__preview-remove" data-chat-preview-remove aria-label="Bỏ ảnh">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18" stroke-linecap="round"/></svg>
+                </button>
+            </div>
+
+            <div class="chat-form__row">
+                {{-- File input — label kiểu icon button --}}
+                <label class="chat-form__attach" aria-label="Đính kèm ảnh">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                        <rect x="3" y="5" width="18" height="14" rx="2"/>
+                        <circle cx="9" cy="11" r="2"/>
+                        <path d="M21 17l-5-5-9 9"/>
+                    </svg>
+                    <input type="file" name="image" accept="image/jpeg,image/png,image/webp,image/gif" data-chat-file hidden>
+                </label>
+                <textarea name="content" rows="2" maxlength="2000"
+                          placeholder="Nhập tin nhắn hoặc đính kèm ảnh..."></textarea>
+                <button type="submit" class="cart-btn cart-btn--primary">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path d="M4 12l16-8-6 16-3-6-7-2z" stroke-linejoin="round"/>
+                    </svg>
+                    Gửi
+                </button>
+            </div>
         </form>
     </main>
 </section>
@@ -78,6 +113,31 @@
 (() => {
     const box = document.getElementById('chatMessages');
     if (box) box.scrollTop = box.scrollHeight;
+
+    // Image preview & remove
+    const form    = document.querySelector('[data-chat-form]');
+    if (!form) return;
+    const fileIn  = form.querySelector('[data-chat-file]');
+    const preview = form.querySelector('[data-chat-preview]');
+    const previewImg = form.querySelector('[data-chat-preview-img]');
+    const removeBtn  = form.querySelector('[data-chat-preview-remove]');
+
+    fileIn?.addEventListener('change', () => {
+        const file = fileIn.files?.[0];
+        if (!file) { preview.hidden = true; return; }
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            previewImg.src = e.target.result;
+            preview.hidden = false;
+        };
+        reader.readAsDataURL(file);
+    });
+
+    removeBtn?.addEventListener('click', () => {
+        fileIn.value = '';
+        previewImg.src = '';
+        preview.hidden = true;
+    });
 })();
 </script>
 @endsection

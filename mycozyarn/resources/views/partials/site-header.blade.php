@@ -1,7 +1,8 @@
 @php
-    $isHome      = ($isHome ?? false);
-    $homePrefix  = $isHome ? '' : '/';
-    $cartCount   = \App\Support\Cart::count();
+    $isHome       = ($isHome ?? false);
+    $homePrefix   = $isHome ? '' : '/';
+    $cartCount    = \App\Support\Cart::count();
+    $notifUnread  = auth()->check() ? \App\Support\Notifications::unreadCount(auth()->id()) : 0;
 @endphp
 
 <header class="site-header" data-header>
@@ -70,7 +71,6 @@
                             <circle cx="12" cy="8" r="4"></circle>
                             <path d="M4 20c1.7-3.4 5-5 8-5s6.3 1.6 8 5"></path>
                         </svg>
-                        <span>Tài khoản</span>
                     </a>
                 @endauth
 
@@ -94,6 +94,17 @@
                             <path d="M4 5h16v12H8l-4 4V5z" stroke-linejoin="round"/>
                         </svg>
                         <span>Tin nhắn</span>
+                    </a>
+
+                    {{-- NOTIFICATIONS --}}
+                    <a href="{{ route('user.notifications.index') }}" class="action-pill action-pill--notif" aria-label="Thông báo">
+                        <svg class="action-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+                            <path d="M6 10a6 6 0 1 1 12 0v4l2 3H4l2-3z" stroke-linejoin="round"/>
+                            <path d="M10 20a2 2 0 0 0 4 0"/>
+                        </svg>
+                        @if($notifUnread > 0)
+                            <span class="cart-badge">{{ $notifUnread > 99 ? '99+' : $notifUnread }}</span>
+                        @endif
                     </a>
                 @endauth
             </div>

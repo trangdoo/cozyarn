@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\User\UpdateProfileRequest;
+use App\Support\Notifications;
 use App\Support\OrderTimeline;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -125,7 +126,7 @@ class UserController extends Controller
         ]);
     }
 
-    public function confirmReceived(Request $request, string $id)
+    public function confirmReceived(string $id)
     {
         $orders = session('orders', []);
         $order  = $orders[$id] ?? null;
@@ -144,6 +145,16 @@ class UserController extends Controller
         $orders[$id]['status']       = 'received';
         $orders[$id]['received_at']  = now()->toDateTimeString();
         session(['orders' => $orders]);
+
+        Notifications::push([
+            'id'      => "ORDER-{$id}-received",
+            'type'    => 'order',
+            'title'   => "Đơn #{$id} đã hoàn tất",
+            'content' => 'Cảm ơn bạn đã mua sắm tại CozyYarn! Đừng quên để lại đánh giá cho sản phẩm nhé.',
+            'link'    => "/don-hang/{$id}",
+            'icon'    => 'order-received',
+            'meta'    => ['order_id' => $id],
+        ]);
 
         return back()->with('cart_flash', 'Cảm ơn bạn! Đã xác nhận nhận hàng thành công.');
     }
@@ -166,6 +177,16 @@ class UserController extends Controller
         $orders[$id]['cancelled_at']   = now()->toDateTimeString();
         $orders[$id]['cancel_reason']  = $reason !== '' ? $reason : 'Không có lý do cụ thể';
         session(['orders' => $orders]);
+
+        Notifications::push([
+            'id'      => "ORDER-{$id}-cancelled",
+            'type'    => 'order',
+            'title'   => "Đơn #{$id} đã được huỷ",
+            'content' => 'Bạn đã huỷ đơn thành công. Nếu đã thanh toán online, tiền sẽ được hoàn trong 3–5 ngày làm việc.',
+            'link'    => "/don-hang/{$id}",
+            'icon'    => 'order-cancelled',
+            'meta'    => ['order_id' => $id],
+        ]);
 
         return redirect()->route('user.orders.cancelled')->with('cart_flash', 'Đã huỷ đơn hàng.');
     }
@@ -191,6 +212,16 @@ class UserController extends Controller
         $orders[$id]['returned_at']    = now()->toDateTimeString();
         $orders[$id]['return_reason']  = $reason !== '' ? $reason : 'Không có lý do cụ thể';
         session(['orders' => $orders]);
+
+        Notifications::push([
+            'id'      => "ORDER-{$id}-return",
+            'type'    => 'order',
+            'title'   => "Đã nhận yêu cầu trả hàng cho đơn #{$id}",
+            'content' => 'Shop đang xử lý yêu cầu trả hàng & hoàn tiền. Bạn sẽ nhận được phản hồi trong 24 giờ.',
+            'link'    => "/don-hang/{$id}",
+            'icon'    => 'order-returned',
+            'meta'    => ['order_id' => $id],
+        ]);
 
         return redirect()->route('user.orders.returned')->with('cart_flash', 'Đã gửi yêu cầu trả hàng.');
     }

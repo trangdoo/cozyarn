@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CartController;
 use App\Http\Controllers\ChatController;
 use App\Http\Controllers\CheckoutController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\UserController;
@@ -55,6 +56,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/tin-nhan/{threadId}', [ChatController::class, 'thread'])
         ->where('threadId', '[a-zA-Z0-9\-_]+')->name('user.chat.thread');
     Route::post('/tin-nhan/gui',       [ChatController::class, 'send'])->name('user.chat.send');
+
+    Route::get('/thong-bao',                [NotificationController::class, 'index'])->name('user.notifications.index');
+    Route::get('/thong-bao/{id}',           [NotificationController::class, 'open'])
+        ->where('id', '[A-Z0-9\-]+')->name('user.notifications.open');
+    Route::post('/thong-bao/doc-tat-ca',    [NotificationController::class, 'markAllRead'])->name('user.notifications.readAll');
 });
 
 Route::get('/', function () {

@@ -58,7 +58,7 @@
                 </div>
 
                 {{-- TIMELINE --}}
-                <section class="co-card">
+                <section class="co-card" id="trang-thai">
                     <h3 class="co-card__title">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
                         Tiến độ đơn hàng

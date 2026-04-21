@@ -79,7 +79,8 @@ class ChatController extends Controller
     {
         $data = $request->validate([
             'thread_id' => 'required|string|max:120',
-            'content'   => 'required|string|max:2000',
+            'content'   => 'nullable|string|max:2000',
+            'image'     => 'nullable|image|mimes:jpg,jpeg,png,webp,gif|max:5120', // 5MB
             // optional: nếu tạo thread mới từ trang product
             'product'   => 'nullable|array',
             'product.slug'       => 'nullable|string|max:120',
@@ -88,6 +89,13 @@ class ChatController extends Controller
             'product.image'      => 'nullable|string|max:300',
             'product.price'      => 'nullable|numeric',
         ]);
+
+        // Phải có ít nhất nội dung text hoặc ảnh
+        $hasContent = !empty(trim((string) ($data['content'] ?? '')));
+        $hasImage   = $request->hasFile('image');
+        if (!$hasContent && !$hasImage) {
+            return back()->withErrors(['content' => 'Vui lòng nhập tin nhắn hoặc chọn ảnh để gửi.']);
+        }
 
         $threadId = $data['thread_id'];
         $all      = session('chats', []);
@@ -122,11 +130,26 @@ class ChatController extends Controller
 
         abort_unless(($thread['user_id'] ?? null) === Auth::id(), 403);
 
+        // Upload ảnh (nếu có) — lưu vào public/uploads/chat/
+        $imagePath = null;
+        if ($hasImage) {
+            $file = $request->file('image');
+            $ext  = strtolower($file->getClientOriginalExtension()) ?: 'jpg';
+            $name = Str::uuid()->toString() . '.' . $ext;
+            $dest = public_path('uploads/chat');
+            if (!is_dir($dest)) {
+                @mkdir($dest, 0755, true);
+            }
+            $file->move($dest, $name);
+            $imagePath = '/uploads/chat/' . $name;
+        }
+
         $now = now()->toDateTimeString();
         $thread['messages'][] = [
             'id'         => (string) Str::uuid(),
             'sender'     => 'user',
-            'content'    => $data['content'],
+            'content'    => $hasContent ? $data['content'] : '',
+            'image'      => $imagePath,
             'created_at' => $now,
         ];
         // Auto-reply từ shop (demo — không có admin thật)
@@ -134,10 +157,13 @@ class ChatController extends Controller
             'id'         => (string) Str::uuid(),
             'sender'     => 'shop',
             'content'    => self::AUTO_REPLY,
+            'image'      => null,
             'created_at' => now()->addSecond()->toDateTimeString(),
         ];
-        $thread['updated_at']    = $now;
-        $thread['last_preview']  = mb_substr($data['content'], 0, 80);
+        $thread['updated_at']   = $now;
+        $thread['last_preview'] = $hasContent
+            ? mb_substr($data['content'], 0, 80)
+            : '📷 Đã gửi một ảnh';
 
         $all[$threadId] = $thread;
         session(['chats' => $all]);
