@@ -1,0 +1,131 @@
+//đây alf file style chính :  css thuần, TAILWIND , boostrap override 
+:root {
+    --pink: #ff4da6;
+    --purple: #a64dff;
+}
+
+/* HEADER */
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 50px;
+    background: #0f0f1a;
+}
+
+.header nav a {
+    margin: 0 15px;
+    color: white;
+    text-decoration: none;
+}
+
+.logo {
+    color: var(--pink);
+    font-weight: bold;
+}
+
+/* BUTTON */
+.btn {
+    background: var(--pink);
+    border: none;
+    padding: 10px 20px;
+    color: white;
+    border-radius: 20px;
+    cursor: pointer;
+}
+
+/* HERO */
+.hero {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 80px;
+    background: linear-gradient(135deg, #ff4da6, #a64dff);
+}
+
+.hero h1 {
+    font-size: 50px;
+}
+
+.hero p {
+    margin: 20px 0;
+}
+
+.hero img {
+    width: 300px;
+}
+
+/* BUTTON HERO */
+.btn-main {
+    background: white;
+    color: var(--pink);
+    border: none;
+    padding: 10px 20px;
+    border-radius: 20px;
+    margin-right: 10px;
+}
+
+.btn-outline {
+    border: 2px solid white;
+    background: transparent;
+    color: white;
+    padding: 10px 20px;
+    border-radius: 20px;
+}
+
+/* PRODUCT */
+.products {
+    padding: 50px;
+}
+
+.products h2 {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.product-grid {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+/* CARD */
+.card {
+    background: #1a1a2e;
+    padding: 20px;
+    border-radius: 15px;
+    width: 200px;
+    text-align: center;
+    transition: 0.3s;
+}
+
+.card:hover {
+    transform: translateY(-10px);
+}
+
+.card img {
+    width: 100%;
+    border-radius: 10px;
+}
+
+.price {
+    color: var(--pink);
+}
+
+.card button {
+    background: var(--pink);
+    border: none;
+    padding: 8px 15px;
+    color: white;
+    border-radius: 10px;
+    cursor: pointer;
+}
+
+/* FOOTER */
+.footer {
+    text-align: center;
+    padding: 20px;
+    background: #0f0f1a;
+    margin-top: 50px;
+}
