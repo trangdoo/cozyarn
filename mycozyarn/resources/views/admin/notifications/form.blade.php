@@ -4,15 +4,14 @@
     $isEdit = !empty($notification);
     $action = $isEdit ? route('admin.notifications.update', $notification['id']) : route('admin.notifications.store');
 
-    // Preload recipient mode
-    $currentMode = 'all';
+    // Preload recipient mode (default: gửi cho tất cả user thường)
+    $currentMode = 'role_user';
     $currentUsers = [];
     if ($isEdit) {
-        $r = $notification['recipients'] ?? 'all';
-        if ($r === 'all') $currentMode = 'all';
-        elseif ($r === 'role:user')  $currentMode = 'role_user';
-        elseif ($r === 'role:admin') $currentMode = 'role_admin';
+        $r = $notification['recipients'] ?? 'role:user';
+        if ($r === 'role:admin') $currentMode = 'role_admin';
         elseif (\is_array($r)) { $currentMode = 'specific'; $currentUsers = array_map('intval', $r); }
+        else $currentMode = 'role_user';
     }
     $meta = $notification['meta'] ?? [];
 @endphp
@@ -60,22 +59,57 @@
                       placeholder="Mô tả ngắn hiển thị ở list thông báo...">{{ old('content', $notification['content'] ?? '') }}</textarea>
         </label>
 
-        <div class="admin-form__row">
-            <label>Biểu tượng *
-                <select name="icon" required>
-                    <optgroup label="Khuyến mãi">
-                        <option value="promo-discount" @selected(old('icon', $notification['icon'] ?? 'promo-discount') === 'promo-discount')>🎁 Giảm giá</option>
-                        <option value="promo-ship" @selected(old('icon', $notification['icon'] ?? '') === 'promo-ship')>🚚 Freeship</option>
-                        <option value="promo-new" @selected(old('icon', $notification['icon'] ?? '') === 'promo-new')>✨ Sản phẩm mới</option>
-                    </optgroup>
-                    <optgroup label="Đơn hàng">
-                        <option value="order-placed" @selected(old('icon', $notification['icon'] ?? '') === 'order-placed')>📋 Đã đặt</option>
-                        <option value="order-confirmed" @selected(old('icon', $notification['icon'] ?? '') === 'order-confirmed')>✅ Đã xác nhận</option>
-                        <option value="order-shipping" @selected(old('icon', $notification['icon'] ?? '') === 'order-shipping')>🚛 Đang giao</option>
-                        <option value="order-delivered" @selected(old('icon', $notification['icon'] ?? '') === 'order-delivered')>📦 Đã giao</option>
-                    </optgroup>
-                </select>
-            </label>
+        @php
+            $currentIcon = old('icon', $notification['icon'] ?? 'promo-discount');
+            $iconOptions = [
+                'Khuyến mãi' => [
+                    ['key' => 'promo-discount', 'label' => 'Giảm giá',    'bg' => '#fff0e3', 'fg' => '#b15e1f',
+                     'svg' => '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z" stroke-linejoin="round"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/>'],
+                    ['key' => 'promo-ship',     'label' => 'Freeship',    'bg' => '#fde4ee', 'fg' => '#b55a82',
+                     'svg' => '<rect x="3" y="8" width="13" height="9" rx="1"/><path d="M16 11h4l2 3v3h-6"/><circle cx="7" cy="19" r="2"/><circle cx="18" cy="19" r="2"/>'],
+                    ['key' => 'promo-new',      'label' => 'Sản phẩm mới','bg' => '#e0f0ff', 'fg' => '#2c5580',
+                     'svg' => '<path d="M12 2l3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1z" stroke-linejoin="round"/>'],
+                ],
+                'Đơn hàng' => [
+                    ['key' => 'order-placed',    'label' => 'Đã đặt',      'bg' => '#fff6cc', 'fg' => '#9a7a1f',
+                     'svg' => '<path d="M6 2h9l5 5v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"/><path d="M14 2v6h6M8 13h8M8 17h5" stroke-linecap="round"/>'],
+                    ['key' => 'order-confirmed', 'label' => 'Đã xác nhận', 'bg' => '#c3e8d5', 'fg' => '#3d7a52',
+                     'svg' => '<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6" stroke-linecap="round" stroke-linejoin="round"/>'],
+                    ['key' => 'order-shipping',  'label' => 'Đang giao',   'bg' => '#fde4ee', 'fg' => '#b55a82',
+                     'svg' => '<rect x="3" y="8" width="13" height="9" rx="1"/><path d="M16 11h4l2 3v3h-6"/><circle cx="7" cy="19" r="2"/><circle cx="18" cy="19" r="2"/>'],
+                    ['key' => 'order-delivered', 'label' => 'Đã giao',     'bg' => '#d4efdb', 'fg' => '#2f6a42',
+                     'svg' => '<path d="M20 7h-8l-2-3H4a1 1 0 0 0-1 1v15a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1z" stroke-linejoin="round"/><path d="M8 14l3 3 5-6" stroke-linecap="round" stroke-linejoin="round"/>'],
+                ],
+            ];
+        @endphp
+
+        <label style="margin-bottom:4px">Biểu tượng *</label>
+        <div class="icon-picker">
+            @foreach($iconOptions as $groupLabel => $icons)
+                @php $groupType = $groupLabel === 'Khuyến mãi' ? 'promo' : 'order'; @endphp
+                <div class="icon-picker__group" data-icon-group="{{ $groupType }}">
+                    <span class="icon-picker__group-label">{{ $groupLabel }}</span>
+                    <div class="icon-picker__grid">
+                        @foreach($icons as $opt)
+                            <label class="icon-pick">
+                                <input type="radio" name="icon" value="{{ $opt['key'] }}" @checked($currentIcon === $opt['key'])>
+                                <div class="icon-pick__inner">
+                                    <span class="icon-pick__icon" style="background:{{ $opt['bg'] }};color:{{ $opt['fg'] }}">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                            {!! $opt['svg'] !!}
+                                        </svg>
+                                    </span>
+                                    <small>{{ $opt['label'] }}</small>
+                                </div>
+                            </label>
+                        @endforeach
+                    </div>
+                </div>
+            @endforeach
+        </div>
+
+        {{-- Các field chỉ có ý nghĩa với khuyến mãi --}}
+        <div class="admin-form__row" data-promo-only>
             <label>Mã giảm giá
                 <input type="text" name="code" maxlength="50" value="{{ old('code', $meta['code'] ?? '') }}" placeholder="VD: COZY30">
             </label>
@@ -92,13 +126,6 @@
         <div class="admin-recip">
             <strong>📤 Gửi đến</strong>
             <div class="admin-recip__grid">
-                <label class="admin-recip__option">
-                    <input type="radio" name="recipient_mode" value="all" @checked(old('recipient_mode', $currentMode) === 'all')>
-                    <span>
-                        <strong>🌐 Toàn hệ thống</strong>
-                        <small>Tất cả user có tài khoản</small>
-                    </span>
-                </label>
                 <label class="admin-recip__option">
                     <input type="radio" name="recipient_mode" value="role_user" @checked(old('recipient_mode', $currentMode) === 'role_user')>
                     <span>
@@ -129,7 +156,7 @@
                 <div class="admin-recip__list">
                     @foreach($users as $u)
                         <label class="admin-recip__user" data-user-row
-                               data-search="{{ mb_strtolower($u->name . ' ' . $u->email) }}">
+                               data-search="{{ mb_strtolower("{$u->name} {$u->email}") }}">
                             <input type="checkbox" name="recipient_users[]" value="{{ $u->id }}"
                                    @checked(\in_array($u->id, old('recipient_users', $currentUsers) ?? [], false))>
                             <div class="admin-recip__user-avatar">{{ mb_strtoupper(mb_substr($u->name, 0, 1)) }}</div>
@@ -174,6 +201,35 @@
 
 <script>
 (() => {
+    // ─── Type toggle: promo ↔ order ───
+    // Ẩn nhóm icon không khớp + ẩn mã giảm giá/hiệu lực khi type=order
+    const typeSel    = document.querySelector('select[name="type"]');
+    const promoOnly  = document.querySelector('[data-promo-only]');
+    const iconGroups = document.querySelectorAll('[data-icon-group]');
+    const iconInputs = document.querySelectorAll('input[name="icon"]');
+
+    const applyType = () => {
+        const t = typeSel.value; // 'promo' | 'order'
+        promoOnly.hidden = (t === 'order');
+        iconGroups.forEach(g => {
+            const match = g.dataset.iconGroup === t;
+            g.hidden = !match;
+        });
+        // Nếu icon hiện tại không thuộc nhóm khớp → chọn icon đầu tiên của nhóm đó
+        const checked = document.querySelector('input[name="icon"]:checked');
+        const stillValid = checked && checked.closest(`[data-icon-group="${t}"]`);
+        if (!stillValid) {
+            const first = document.querySelector(`[data-icon-group="${t}"] input[name="icon"]`);
+            if (first) first.checked = true;
+        }
+        // Clear code/valid_until khi chuyển sang order (để không submit data thừa)
+        if (t === 'order') {
+            promoOnly.querySelectorAll('input').forEach(i => i.value = '');
+        }
+    };
+    typeSel?.addEventListener('change', applyType);
+    applyType();
+
     // ─── Recipient mode toggle ───
     const recipUsers = document.querySelector('[data-recip-users]');
     const modeRadios = document.querySelectorAll('input[name="recipient_mode"]');

@@ -70,7 +70,7 @@ class NotificationController extends Controller
     public function edit(string $id)
     {
         $notif = BroadcastQueue::find($id);
-        abort_unless($notif, 404);
+        abort_unless($notif !== null, 404);
         // Không cho sửa nếu đã gửi
         if (($notif['send_at'] ?? now()->toDateTimeString()) <= now()->toDateTimeString()) {
             return redirect()->route('admin.notifications.index')
@@ -98,7 +98,7 @@ class NotificationController extends Controller
     public function update(Request $request, string $id)
     {
         $notif = BroadcastQueue::find($id);
-        abort_unless($notif, 404);
+        abort_unless($notif !== null, 404);
         if (($notif['send_at'] ?? now()->toDateTimeString()) <= now()->toDateTimeString()) {
             return redirect()->route('admin.notifications.index')
                 ->with('cart_flash', 'Không thể sửa thông báo đã gửi.');
@@ -138,7 +138,7 @@ class NotificationController extends Controller
             'code'            => 'nullable|string|max:50',
             'valid_until'     => 'nullable|string|max:50',
             'send_at'         => 'nullable|date',
-            'recipient_mode'  => 'required|in:all,role_user,role_admin,specific',
+            'recipient_mode'  => 'required|in:role_user,role_admin,specific',
             'recipient_users' => 'nullable|array',
             'recipient_users.*' => 'integer',
         ]);
@@ -147,7 +147,6 @@ class NotificationController extends Controller
     private function saveBroadcast(array $data, ?string $existingId = null, ?string $existingCreated = null): void
     {
         $recipients = match ($data['recipient_mode']) {
-            'all'         => 'all',
             'role_user'   => 'role:user',
             'role_admin'  => 'role:admin',
             'specific'    => array_values(array_map('intval', $data['recipient_users'] ?? [])),

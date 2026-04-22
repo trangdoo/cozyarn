@@ -8898,6 +8898,81 @@ a {
     margin: 10px 0;
 }
 
+/* ──── Icon visual picker (notification form) ──── */
+.icon-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 14px;
+    background: #fff;
+    border: 1px solid #f0dae5;
+    border-radius: 12px;
+}
+.icon-picker__group-label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #b09aa4;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+.icon-picker__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    gap: 8px;
+}
+.icon-pick {
+    cursor: pointer;
+    margin: 0;
+    font-weight: normal;
+}
+.icon-pick input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+    width: 0; height: 0;
+}
+.icon-pick__inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 8px;
+    background: #faf4f7;
+    border: 2px solid transparent;
+    border-radius: 10px;
+    transition: all 180ms ease;
+}
+.icon-pick:hover .icon-pick__inner {
+    background: #fff6fa;
+    border-color: #f0c7d6;
+}
+.icon-pick input:checked + .icon-pick__inner {
+    border-color: #d97b9d;
+    background: linear-gradient(135deg, #fff6fa, #fde4ee);
+    box-shadow: 0 2px 8px rgba(217,123,157,0.2);
+    transform: translateY(-1px);
+}
+.icon-pick__icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.icon-pick__icon svg { width: 22px; height: 22px; display: block; }
+.icon-pick small {
+    font-size: 12px;
+    color: #6d3e55;
+    font-weight: 600;
+    text-align: center;
+    line-height: 1.3;
+}
+.icon-pick input:checked ~ .icon-pick__inner small { color: #b55a82; }
+
 /* ──── Notification recipient picker ──── */
 .admin-recip {
     padding: 16px;
@@ -8970,19 +9045,34 @@ a {
 }
 .admin-recip__user {
     display: flex;
-    gap: 10px;
+    flex-direction: row;
+    gap: 12px;
     align-items: center;
-    padding: 8px 10px;
-    border-radius: 6px;
+    padding: 8px 12px;
+    border-radius: 8px;
     cursor: pointer;
     font-weight: normal;
     margin: 0;
+    border: 1px solid transparent;
+    transition: all 160ms ease;
 }
-.admin-recip__user:hover { background: #fff6fa; }
-.admin-recip__user input {
+.admin-recip__user:hover {
+    background: #fff6fa;
+    border-color: #f5d6e3;
+}
+.admin-recip__user:has(input:checked) {
+    background: linear-gradient(135deg, #fde4ee, #fff6fa);
+    border-color: #eba7c2;
+}
+.admin-recip__user input[type="checkbox"] {
     accent-color: #d97b9d;
-    width: 16px; height: 16px;
-    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    flex: 0 0 auto;
+    order: 99;  /* đẩy checkbox sang cuối */
 }
 .admin-recip__user-avatar {
     width: 32px; height: 32px;
