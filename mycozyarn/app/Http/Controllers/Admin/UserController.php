@@ -39,7 +39,93 @@ class UserController extends Controller
 
     public function show(User $user)
     {
-        return view('admin.users.show', ['user' => $user]);
+        // Lấy tất cả đơn hàng của user này trong session. Khi migrate DB sẽ đổi sang:
+        // $orders = Order::where('user_id', $user->id)->latest()->get();
+        $orders = array_values(array_filter(session('orders', []), fn($o) =>
+            ($o['user_id'] ?? null) === $user->id
+        ));
+        usort($orders, fn($a, $b) => strcmp($b['created_at'] ?? '', $a['created_at'] ?? ''));
+
+        // Phân loại theo trạng thái cuối
+        $bucket = ['active' => 0, 'received' => 0, 'cancelled' => 0, 'return_requested' => 0, 'returned' => 0];
+        $totalSpent = 0;
+        $totalItems = 0;
+        foreach ($orders as $o) {
+            $s = $o['status'] ?? 'pending';
+            if (\in_array($s, ['cancelled', 'returned', 'return_requested', 'received'], true)) {
+                $bucket[$s] = ($bucket[$s] ?? 0) + 1;
+            } else {
+                $bucket['active']++;
+            }
+            // Chỉ tính vào "đã chi" khi đơn không bị huỷ/hoàn tiền
+            if (!\in_array($s, ['cancelled', 'returned'], true)) {
+                $totalSpent += (int) ($o['total'] ?? 0);
+                $totalItems += \count($o['items'] ?? []);
+            }
+        }
+
+        $totalOrders = \count($orders);
+        $cancelRatio = $totalOrders > 0 ? round($bucket['cancelled'] / $totalOrders * 100) : 0;
+        $returnRatio = $totalOrders > 0 ? round(($bucket['returned'] + $bucket['return_requested']) / $totalOrders * 100) : 0;
+
+        // Risk score 0-100
+        $risk = 0;
+        $reasons = [];
+        $risk += $bucket['cancelled']        * 10;
+        $risk += $bucket['return_requested'] * 15;
+        $risk += $bucket['returned']         * 8;
+        if ($cancelRatio >= 50 && $totalOrders >= 3) {
+            $risk += 20;
+            $reasons[] = "Tỷ lệ huỷ đơn cao ({$cancelRatio}%)";
+        }
+        if ($returnRatio >= 40 && $totalOrders >= 3) {
+            $risk += 15;
+            $reasons[] = "Tỷ lệ yêu cầu trả hàng cao ({$returnRatio}%)";
+        }
+        if ($bucket['cancelled'] >= 3) {
+            $reasons[] = "Có {$bucket['cancelled']} đơn đã huỷ";
+        }
+        if ($bucket['return_requested'] >= 2) {
+            $reasons[] = "Có {$bucket['return_requested']} yêu cầu trả hàng đang xử lý";
+        }
+        // Tài khoản mới + nhiều đơn → cờ đáng ngờ
+        $accountAgeDays = $user->created_at?->diffInDays(now()) ?? 0;
+        if ($accountAgeDays <= 3 && $totalOrders >= 5) {
+            $risk += 15;
+            $reasons[] = "Tài khoản mới ({$accountAgeDays} ngày) nhưng có {$totalOrders} đơn";
+        }
+        if ($user->status === 'blocked') {
+            $reasons[] = "Tài khoản hiện đang bị khoá";
+        }
+        $risk = min(100, $risk);
+
+        $riskLevel = match (true) {
+            $risk >= 80 => ['key' => 'critical', 'label' => 'Rất cao — nên khoá tài khoản'],
+            $risk >= 50 => ['key' => 'high',     'label' => 'Cao — cần theo dõi'],
+            $risk >= 20 => ['key' => 'medium',   'label' => 'Trung bình'],
+            default     => ['key' => 'low',      'label' => 'Thấp — bình thường'],
+        };
+
+        return view('admin.users.show', [
+            'user'        => $user,
+            'orders'      => $orders,
+            'stats'       => [
+                'total'        => $totalOrders,
+                'active'       => $bucket['active'],
+                'received'     => $bucket['received'],
+                'cancelled'    => $bucket['cancelled'],
+                'returned'     => $bucket['returned'],
+                'returnReq'    => $bucket['return_requested'],
+                'cancelRatio'  => $cancelRatio,
+                'returnRatio'  => $returnRatio,
+                'totalSpent'   => $totalSpent,
+                'totalItems'   => $totalItems,
+                'accountAgeDays' => $accountAgeDays,
+            ],
+            'risk'        => $risk,
+            'riskLevel'   => $riskLevel,
+            'riskReasons' => $reasons,
+        ]);
     }
 
     public function update(Request $request, User $user)

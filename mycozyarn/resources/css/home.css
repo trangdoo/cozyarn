@@ -8755,6 +8755,115 @@ a {
 .admin-btn--success { background: #d4efdb; color: #2f6a42; border-color: #a8d7b7; }
 .admin-btn--success:hover { background: #b9e5c7; }
 
+/* ──── User risk UI ──── */
+.admin-risk {
+    display: flex;
+    gap: 14px;
+    padding: 16px 20px;
+    border-radius: 14px;
+    margin-bottom: 18px;
+    border: 1px solid;
+}
+.admin-risk__icon {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.admin-risk__icon svg { width: 22px; height: 22px; }
+.admin-risk__body { flex: 1; }
+.admin-risk__body strong {
+    display: block;
+    font-size: 15px;
+    margin-bottom: 4px;
+}
+.admin-risk__body ul {
+    margin: 4px 0 0;
+    padding-left: 18px;
+    font-size: 13.5px;
+    line-height: 1.6;
+}
+.admin-risk--low      { background: #f3fcf6; border-color: #c3e8d5; color: #2f6a42; }
+.admin-risk--low      .admin-risk__icon { background: #c3e8d5; color: #2f6a42; }
+.admin-risk--medium   { background: #fffbe5; border-color: #f0e0a0; color: #7a5e1a; }
+.admin-risk--medium   .admin-risk__icon { background: #f7eab3; color: #7a5e1a; }
+.admin-risk--high     { background: #fff2e0; border-color: #f3d0a4; color: #b15e1f; }
+.admin-risk--high     .admin-risk__icon { background: #f9dbb5; color: #b15e1f; }
+.admin-risk--critical { background: #fdeaef; border-color: #f5c3d1; color: #a63652; }
+.admin-risk--critical .admin-risk__icon { background: #f5c3d1; color: #a63652; }
+
+/* Risk gauge (mini bar) */
+.admin-risk-gauge {
+    padding: 14px 20px;
+    border-bottom: 1px solid #f5d6e3;
+}
+.admin-risk-gauge__top {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+}
+.admin-risk-gauge__top small { color: #8a6d7a; font-size: 12px; text-transform: uppercase; letter-spacing: 0.3px; font-weight: 600; }
+.admin-risk-gauge__top strong { font-size: 22px; }
+.admin-risk-gauge__bar {
+    height: 8px;
+    background: #faf4f7;
+    border-radius: 6px;
+    overflow: hidden;
+}
+.admin-risk-gauge__bar i {
+    display: block;
+    height: 100%;
+    border-radius: 6px;
+    transition: width 400ms ease;
+}
+.admin-risk-gauge__label {
+    display: block;
+    margin-top: 6px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.admin-risk-gauge--low      .admin-risk-gauge__top strong,
+.admin-risk-gauge--low      .admin-risk-gauge__label { color: #2f6a42; }
+.admin-risk-gauge--low      .admin-risk-gauge__bar i { background: linear-gradient(90deg, #8ed5a4, #3d7a52); }
+.admin-risk-gauge--medium   .admin-risk-gauge__top strong,
+.admin-risk-gauge--medium   .admin-risk-gauge__label { color: #9a7a1f; }
+.admin-risk-gauge--medium   .admin-risk-gauge__bar i { background: linear-gradient(90deg, #f4d878, #d9a33f); }
+.admin-risk-gauge--high     .admin-risk-gauge__top strong,
+.admin-risk-gauge--high     .admin-risk-gauge__label { color: #b15e1f; }
+.admin-risk-gauge--high     .admin-risk-gauge__bar i { background: linear-gradient(90deg, #f3b47a, #d97b2e); }
+.admin-risk-gauge--critical .admin-risk-gauge__top strong,
+.admin-risk-gauge--critical .admin-risk-gauge__label { color: #a63652; }
+.admin-risk-gauge--critical .admin-risk-gauge__bar i { background: linear-gradient(90deg, #f48ca6, #a63652); }
+
+/* User head card (avatar + info block) */
+.admin-user-head {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    padding: 18px 20px;
+    border-bottom: 1px solid #f5d6e3;
+    background: linear-gradient(135deg, #fff6fa, #fff);
+}
+.admin-user-head__avatar {
+    width: 64px; height: 64px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f6a5c1, #d97b9d);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 800;
+    font-size: 26px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.admin-user-head__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.admin-user-head__info { flex: 1; min-width: 0; }
+.admin-user-head__info strong { display: block; font-size: 18px; color: #4a3644; }
+.admin-user-head__info small { color: #a6849a; font-size: 13px; }
+.admin-user-head__tags { display: flex; gap: 6px; margin-top: 6px; flex-wrap: wrap; }
+
 /* Icon-only action button */
 .admin-icon-btn {
     display: inline-flex;
