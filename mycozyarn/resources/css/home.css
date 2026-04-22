@@ -8755,6 +8755,149 @@ a {
 .admin-btn--success { background: #d4efdb; color: #2f6a42; border-color: #a8d7b7; }
 .admin-btn--success:hover { background: #b9e5c7; }
 
+/* ──── Blog admin: tags, schedule, editor ──── */
+.admin-tags-filter {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 12px 0 16px;
+}
+.admin-tags-filter__label {
+    font-size: 12.5px;
+    color: #8a6d7a;
+    font-weight: 600;
+    margin-right: 4px;
+}
+.admin-tag-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 12px;
+    border-radius: 14px;
+    background: #fff;
+    border: 1px solid #f0dae5;
+    color: #7f4e63;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 160ms ease;
+}
+.admin-tag-pill:hover { background: #fff6fa; border-color: #eba7c2; }
+.admin-tag-pill.is-active {
+    background: linear-gradient(135deg, #f6a5c1, #d97b9d);
+    color: #fff;
+    border-color: transparent;
+}
+.admin-tag-pill small { opacity: 0.7; font-size: 11px; }
+
+.admin-tag-mini {
+    display: inline-block;
+    padding: 1px 8px;
+    margin: 2px 3px 2px 0;
+    background: #fff6fa;
+    color: #b55a82;
+    border-radius: 10px;
+    font-size: 11.5px;
+    font-weight: 600;
+}
+
+.admin-sched-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    margin-top: 4px;
+    background: #fff0e3;
+    color: #b15e1f;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.admin-schedule {
+    padding: 14px 16px;
+    background: linear-gradient(135deg, #fff6fa, #fff0e3);
+    border: 1px dashed #eba7c2;
+    border-radius: 12px;
+}
+.admin-schedule__head { margin-bottom: 8px; }
+.admin-schedule__head strong { display: block; color: #b55a82; font-size: 14px; }
+.admin-schedule__head small { color: #8a6d7a; font-size: 12.5px; }
+
+.admin-tags-suggest {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+}
+.admin-tag-suggest {
+    padding: 4px 10px;
+    border-radius: 10px;
+    background: #faf4f7;
+    border: 1px dashed #d8c0ce;
+    color: #7f4e63;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: inherit;
+}
+.admin-tag-suggest:hover { background: #fde4ee; border-style: solid; border-color: #eba7c2; color: #b55a82; }
+
+/* Quill editor styling */
+.admin-quill {
+    background: #fff;
+    border-radius: 0 0 10px 10px;
+    min-height: 240px;
+    font-size: 15px;
+    color: #4a3644;
+}
+.ql-toolbar.ql-snow {
+    border: 1px solid #f0c7d6;
+    border-bottom: 0;
+    border-radius: 10px 10px 0 0;
+    background: #fff6fa;
+}
+.ql-container.ql-snow {
+    border: 1px solid #f0c7d6;
+    border-radius: 0 0 10px 10px;
+    min-height: 240px;
+    font-family: inherit;
+}
+.ql-editor { padding: 14px 16px; }
+.ql-editor.ql-blank::before { color: #b09aa4; font-style: normal; }
+.ql-snow .ql-stroke { stroke: #7f4e63; }
+.ql-snow .ql-fill { fill: #7f4e63; }
+.ql-snow .ql-picker { color: #7f4e63; }
+.ql-snow.ql-toolbar button:hover .ql-stroke,
+.ql-snow.ql-toolbar button.ql-active .ql-stroke {
+    stroke: #b55a82;
+}
+
+/* Blog body rendering on admin show */
+.admin-blog-body { font-size: 14.5px; line-height: 1.7; color: #4a3644; }
+.admin-blog-body h2, .admin-blog-body h3 {
+    margin: 16px 0 8px;
+    color: #6d3e55;
+    font-size: 18px;
+}
+.admin-blog-body h3 { font-size: 16px; }
+.admin-blog-body p { margin: 0 0 10px; }
+.admin-blog-body ul, .admin-blog-body ol { padding-left: 22px; margin: 6px 0 10px; }
+.admin-blog-body blockquote {
+    margin: 10px 0;
+    padding: 8px 14px;
+    border-left: 3px solid #eba7c2;
+    background: #fff6fa;
+    color: #6d3e55;
+    border-radius: 0 8px 8px 0;
+}
+.admin-blog-body img {
+    max-width: 100%;
+    border-radius: 10px;
+    margin: 10px 0;
+}
+
 /* ──── User risk UI ──── */
 .admin-risk {
     display: flex;

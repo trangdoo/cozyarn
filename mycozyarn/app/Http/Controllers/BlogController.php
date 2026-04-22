@@ -17,6 +17,11 @@ class BlogController extends Controller
     {
         $blog  = require resource_path('blog.php');
         $posts = $blog['posts'];
+
+        // Lọc bỏ bài có publish_at tương lai (admin hẹn giờ đăng)
+        $now = now()->toDateTimeString();
+        $posts = array_values(array_filter($posts, fn($p) => ($p['publish_at'] ?? $p['date']) <= $now));
+
         usort($posts, fn($a, $b) => strcmp($b['date'], $a['date']));
 
         $categorySlug = $request->query('category');
@@ -24,7 +29,7 @@ class BlogController extends Controller
             $posts = array_values(array_filter($posts, fn($p) => $p['category'] === $categorySlug));
         }
 
-        $featured = collect($blog['posts'])->firstWhere('featured', true) ?? $blog['posts'][0];
+        $featured = collect($posts)->firstWhere('featured', true) ?? ($posts[0] ?? null);
 
         return view('user.blog.index', [
             'posts'          => $posts,
@@ -54,7 +59,7 @@ class BlogController extends Controller
                 ->take(3 - \count($related))
                 ->values()
                 ->all();
-            $related = array_merge($related, $extra);
+            $related = [...$related, ...$extra];
         }
 
         return view('user.blog.show', [
@@ -123,7 +128,7 @@ class BlogController extends Controller
      */
     private function likeCountFor(string $slug): int
     {
-        $seed = \crc32($slug . '|like');
+        $seed = \crc32("{$slug}|like");
         $base = 18 + $seed % 120;
 
         if (\in_array($slug, $this->myLikes(), true)) $base += 1;

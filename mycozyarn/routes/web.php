@@ -115,6 +115,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('blog',                      [AdminBlog::class, 'index'])->name('blog.index');
     Route::get('blog/tao',                  [AdminBlog::class, 'create'])->name('blog.create');
     Route::post('blog',                     [AdminBlog::class, 'store'])->name('blog.store');
+    Route::post('blog/xoa-nhieu',           [AdminBlog::class, 'bulkDelete'])->name('blog.bulkDelete');
+    Route::get('blog/{slug}/chi-tiet',      [AdminBlog::class, 'show'])->name('blog.show');
     Route::get('blog/{slug}/sua',           [AdminBlog::class, 'edit'])->name('blog.edit');
     Route::patch('blog/{slug}',             [AdminBlog::class, 'update'])->name('blog.update');
     Route::delete('blog/{slug}',            [AdminBlog::class, 'destroy'])->name('blog.destroy');
