@@ -48,6 +48,11 @@ class ChatController extends Controller
         abort_unless($thread, 404);
         abort_unless(($thread['user_id'] ?? null) === Auth::id(), 403);
 
+        // Mark read — user đã xem toàn bộ tin nhắn từ shop tính đến thời điểm này
+        $all[$threadId]['last_read_by_user'] = now()->toDateTimeString();
+        session(['chats' => $all]);
+        $thread = $all[$threadId];
+
         return view('user.chat.thread', [
             'thread'         => $thread,
             'threadId'       => $threadId,

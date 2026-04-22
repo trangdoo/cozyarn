@@ -126,9 +126,12 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::patch('don-hang/{id}/trang-thai',[AdminOrder::class, 'updateStatus'])->name('orders.status');
 
     // Chat
-    Route::get('tin-nhan',                  [AdminChat::class, 'index'])->name('chat.index');
-    Route::get('tin-nhan/{threadId}',       [AdminChat::class, 'show'])->name('chat.show');
-    Route::post('tin-nhan/{threadId}/tra-loi', [AdminChat::class, 'reply'])->name('chat.reply');
+    Route::get('tin-nhan',                      [AdminChat::class, 'index'])->name('chat.index');
+    Route::get('tin-nhan/{threadId}',           [AdminChat::class, 'show'])->name('chat.show');
+    Route::post('tin-nhan/{threadId}/tra-loi',  [AdminChat::class, 'reply'])->name('chat.reply');
+    Route::post('tin-nhan/{threadId}/ghim',     [AdminChat::class, 'togglePin'])->name('chat.pin');
+    Route::post('tin-nhan/{threadId}/tat-tb',   [AdminChat::class, 'toggleMute'])->name('chat.mute');
+    Route::delete('tin-nhan/{threadId}',        [AdminChat::class, 'destroy'])->name('chat.destroy');
 
     // Notifications
     Route::get('thong-bao',                 [AdminNotification::class, 'index'])->name('notifications.index');
