@@ -10,6 +10,14 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\Admin\DashboardController    as AdminDashboard;
+use App\Http\Controllers\Admin\UserController         as AdminUser;
+use App\Http\Controllers\Admin\ProductController      as AdminProduct;
+use App\Http\Controllers\Admin\CategoryController     as AdminCategory;
+use App\Http\Controllers\Admin\BlogController         as AdminBlog;
+use App\Http\Controllers\Admin\OrderController        as AdminOrder;
+use App\Http\Controllers\Admin\ChatController         as AdminChat;
+use App\Http\Controllers\Admin\NotificationController as AdminNotification;
 
 Route::get('login', [AuthController::class,'showLoginForm'])->name('login');
 Route::post('login', [AuthController::class,'login']);
@@ -66,6 +74,59 @@ Route::middleware('auth')->group(function () {
     Route::get('/thong-bao/{id}',           [NotificationController::class, 'open'])
         ->where('id', '[A-Z0-9\-]+')->name('user.notifications.open');
     Route::post('/thong-bao/doc-tat-ca',    [NotificationController::class, 'markAllRead'])->name('user.notifications.readAll');
+});
+
+/* ═════════════════════════════════════ ADMIN ═════════════════════════════════════ */
+Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/', [AdminDashboard::class, 'index'])->name('dashboard');
+
+    // Users
+    Route::get('tai-khoan',                 [AdminUser::class, 'index'])->name('users.index');
+    Route::get('tai-khoan/{user}',          [AdminUser::class, 'show'])->name('users.show');
+    Route::patch('tai-khoan/{user}',        [AdminUser::class, 'update'])->name('users.update');
+    Route::delete('tai-khoan/{user}',       [AdminUser::class, 'destroy'])->name('users.destroy');
+    Route::post('tai-khoan/{user}/khoa',    [AdminUser::class, 'toggleBlock'])->name('users.toggleBlock');
+
+    // Products
+    Route::get('san-pham',                          [AdminProduct::class, 'index'])->name('products.index');
+    Route::get('san-pham/tao',                      [AdminProduct::class, 'create'])->name('products.create');
+    Route::post('san-pham',                         [AdminProduct::class, 'store'])->name('products.store');
+    Route::get('san-pham/{category}/{slug}/sua',    [AdminProduct::class, 'edit'])->name('products.edit');
+    Route::patch('san-pham/{category}/{slug}',      [AdminProduct::class, 'update'])->name('products.update');
+    Route::delete('san-pham/{category}/{slug}',     [AdminProduct::class, 'destroy'])->name('products.destroy');
+
+    // Categories
+    Route::get('danh-muc',                  [AdminCategory::class, 'index'])->name('categories.index');
+    Route::get('danh-muc/tao',              [AdminCategory::class, 'create'])->name('categories.create');
+    Route::post('danh-muc',                 [AdminCategory::class, 'store'])->name('categories.store');
+    Route::get('danh-muc/{slug}/sua',       [AdminCategory::class, 'edit'])->name('categories.edit');
+    Route::patch('danh-muc/{slug}',         [AdminCategory::class, 'update'])->name('categories.update');
+    Route::delete('danh-muc/{slug}',        [AdminCategory::class, 'destroy'])->name('categories.destroy');
+
+    // Blog
+    Route::get('blog',                      [AdminBlog::class, 'index'])->name('blog.index');
+    Route::get('blog/tao',                  [AdminBlog::class, 'create'])->name('blog.create');
+    Route::post('blog',                     [AdminBlog::class, 'store'])->name('blog.store');
+    Route::get('blog/{slug}/sua',           [AdminBlog::class, 'edit'])->name('blog.edit');
+    Route::patch('blog/{slug}',             [AdminBlog::class, 'update'])->name('blog.update');
+    Route::delete('blog/{slug}',            [AdminBlog::class, 'destroy'])->name('blog.destroy');
+    Route::post('blog/{slug}/noi-bat',      [AdminBlog::class, 'toggleFeatured'])->name('blog.featured');
+
+    // Orders
+    Route::get('don-hang',                  [AdminOrder::class, 'index'])->name('orders.index');
+    Route::get('don-hang/{id}',             [AdminOrder::class, 'show'])->name('orders.show');
+    Route::patch('don-hang/{id}/trang-thai',[AdminOrder::class, 'updateStatus'])->name('orders.status');
+
+    // Chat
+    Route::get('tin-nhan',                  [AdminChat::class, 'index'])->name('chat.index');
+    Route::get('tin-nhan/{threadId}',       [AdminChat::class, 'show'])->name('chat.show');
+    Route::post('tin-nhan/{threadId}/tra-loi', [AdminChat::class, 'reply'])->name('chat.reply');
+
+    // Notifications
+    Route::get('thong-bao',                 [AdminNotification::class, 'index'])->name('notifications.index');
+    Route::get('thong-bao/tao',             [AdminNotification::class, 'create'])->name('notifications.create');
+    Route::post('thong-bao',                [AdminNotification::class, 'store'])->name('notifications.store');
+    Route::delete('thong-bao/{id}',         [AdminNotification::class, 'destroy'])->name('notifications.destroy');
 });
 
 Route::get('/', function () {
