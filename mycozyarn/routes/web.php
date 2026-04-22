@@ -123,9 +123,22 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('blog/{slug}/noi-bat',      [AdminBlog::class, 'toggleFeatured'])->name('blog.featured');
 
     // Orders
-    Route::get('don-hang',                  [AdminOrder::class, 'index'])->name('orders.index');
-    Route::get('don-hang/{id}',             [AdminOrder::class, 'show'])->name('orders.show');
-    Route::patch('don-hang/{id}/trang-thai',[AdminOrder::class, 'updateStatus'])->name('orders.status');
+    Route::get('don-hang',                          [AdminOrder::class, 'index'])->name('orders.index');
+    Route::get('don-hang/xuat/{format}',            [AdminOrder::class, 'export'])
+        ->where('format', 'csv|json')->name('orders.export');
+    Route::post('don-hang/xac-nhan-nhieu',          [AdminOrder::class, 'bulkConfirm'])->name('orders.bulkConfirm');
+    Route::post('don-hang/xoa-nhieu',               [AdminOrder::class, 'bulkDelete'])->name('orders.bulkDelete');
+    Route::get('don-hang/{id}',                     [AdminOrder::class, 'show'])->name('orders.show');
+    Route::delete('don-hang/{id}',                  [AdminOrder::class, 'destroy'])->name('orders.destroy');
+    Route::patch('don-hang/{id}/trang-thai',        [AdminOrder::class, 'updateStatus'])->name('orders.status');
+    Route::post('don-hang/{id}/xac-nhan',           [AdminOrder::class, 'confirm'])->name('orders.confirm');
+    Route::post('don-hang/{id}/giao-hang',          [AdminOrder::class, 'ship'])->name('orders.ship');
+    Route::post('don-hang/{id}/da-giao',            [AdminOrder::class, 'deliver'])->name('orders.deliver');
+    Route::post('don-hang/{id}/duyet-huy',          [AdminOrder::class, 'approveCancel'])->name('orders.approveCancel');
+    Route::post('don-hang/{id}/duyet-tra',          [AdminOrder::class, 'approveReturn'])->name('orders.approveReturn');
+    Route::post('don-hang/{id}/tu-choi-tra',        [AdminOrder::class, 'rejectReturn'])->name('orders.rejectReturn');
+    Route::post('don-hang/{id}/danh-gia/{item}/phan-hoi', [AdminOrder::class, 'replyReview'])
+        ->name('orders.replyReview');
 
     // Chat
     Route::get('tin-nhan',                      [AdminChat::class, 'index'])->name('chat.index');
