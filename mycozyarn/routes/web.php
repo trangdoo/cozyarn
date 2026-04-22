@@ -87,13 +87,21 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::delete('tai-khoan/{user}',       [AdminUser::class, 'destroy'])->name('users.destroy');
     Route::post('tai-khoan/{user}/khoa',    [AdminUser::class, 'toggleBlock'])->name('users.toggleBlock');
 
-    // Products
-    Route::get('san-pham',                          [AdminProduct::class, 'index'])->name('products.index');
-    Route::get('san-pham/tao',                      [AdminProduct::class, 'create'])->name('products.create');
-    Route::post('san-pham',                         [AdminProduct::class, 'store'])->name('products.store');
-    Route::get('san-pham/{category}/{slug}/sua',    [AdminProduct::class, 'edit'])->name('products.edit');
-    Route::patch('san-pham/{category}/{slug}',      [AdminProduct::class, 'update'])->name('products.update');
-    Route::delete('san-pham/{category}/{slug}',     [AdminProduct::class, 'destroy'])->name('products.destroy');
+    // Products — full-feature CRUD + import/export + bulk + duplicate
+    Route::get('san-pham',                              [AdminProduct::class, 'index'])->name('products.index');
+    Route::get('san-pham/tao',                          [AdminProduct::class, 'create'])->name('products.create');
+    Route::post('san-pham',                             [AdminProduct::class, 'store'])->name('products.store');
+    Route::get('san-pham/nhap',                         [AdminProduct::class, 'importForm'])->name('products.importForm');
+    Route::post('san-pham/nhap',                        [AdminProduct::class, 'import'])->name('products.import');
+    Route::get('san-pham/xuat/{format}',                [AdminProduct::class, 'export'])
+        ->where('format', 'csv|json|xml')->name('products.export');
+    Route::post('san-pham/xoa-nhieu',                   [AdminProduct::class, 'bulkDelete'])->name('products.bulkDelete');
+    Route::post('san-pham/sao-chep-nhieu',              [AdminProduct::class, 'duplicateMany'])->name('products.duplicateMany');
+    Route::get('san-pham/{category}/{slug}/chi-tiet',   [AdminProduct::class, 'show'])->name('products.show');
+    Route::get('san-pham/{category}/{slug}/sua',        [AdminProduct::class, 'edit'])->name('products.edit');
+    Route::patch('san-pham/{category}/{slug}',          [AdminProduct::class, 'update'])->name('products.update');
+    Route::delete('san-pham/{category}/{slug}',         [AdminProduct::class, 'destroy'])->name('products.destroy');
+    Route::post('san-pham/{category}/{slug}/sao-chep',  [AdminProduct::class, 'duplicate'])->name('products.duplicate');
 
     // Categories
     Route::get('danh-muc',                  [AdminCategory::class, 'index'])->name('categories.index');

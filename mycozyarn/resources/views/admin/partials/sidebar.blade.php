@@ -50,9 +50,9 @@
         </a>
 
         <span class="admin-nav__group">Hệ thống</span>
-        <a href="/" class="admin-nav__item">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg>
-            Về trang shop
+        <a href="/" target="_blank" rel="noopener noreferrer" class="admin-nav__item" title="Mở trang shop trong tab mới">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 3h6v6M21 3l-9 9M10 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-5"/></svg>
+            Xem shop
         </a>
         <form method="POST" action="{{ route('logout') }}">
             @csrf
