@@ -8898,6 +8898,115 @@ a {
     margin: 10px 0;
 }
 
+/* ──── Notification recipient picker ──── */
+.admin-recip {
+    padding: 16px;
+    background: #faf4f7;
+    border: 1px solid #f0dae5;
+    border-radius: 12px;
+}
+.admin-recip > strong {
+    display: block;
+    margin-bottom: 12px;
+    color: #6d3e55;
+    font-size: 14px;
+}
+.admin-recip__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.admin-recip__option {
+    display: flex;
+    gap: 10px;
+    padding: 12px 14px;
+    background: #fff;
+    border: 2px solid #f0dae5;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 160ms ease;
+    font-weight: normal;
+}
+.admin-recip__option:hover { border-color: #eba7c2; background: #fff6fa; }
+.admin-recip__option:has(input:checked) {
+    border-color: #d97b9d;
+    background: linear-gradient(135deg, #fff6fa, #fde4ee);
+    box-shadow: 0 2px 8px rgba(217,123,157,0.18);
+}
+.admin-recip__option input[type="radio"] {
+    accent-color: #d97b9d;
+    width: 16px; height: 16px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+.admin-recip__option span { display: flex; flex-direction: column; gap: 2px; }
+.admin-recip__option strong { font-size: 13.5px; color: #4a3644; }
+.admin-recip__option small { color: #a6849a; font-size: 12px; }
+
+.admin-recip__users {
+    padding: 14px;
+    background: #fff;
+    border: 1px solid #f5d6e3;
+    border-radius: 10px;
+}
+.admin-recip__users[hidden] { display: none; }
+.admin-recip__search { margin-bottom: 10px; }
+.admin-recip__search input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #f0c7d6;
+    border-radius: 8px;
+    font-size: 13px;
+    font-family: inherit;
+    color: #4a3644;
+}
+.admin-recip__list {
+    max-height: 260px;
+    overflow-y: auto;
+    border: 1px solid #faf4f7;
+    border-radius: 8px;
+    padding: 4px;
+}
+.admin-recip__user {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: normal;
+    margin: 0;
+}
+.admin-recip__user:hover { background: #fff6fa; }
+.admin-recip__user input {
+    accent-color: #d97b9d;
+    width: 16px; height: 16px;
+    flex-shrink: 0;
+}
+.admin-recip__user-avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #f6a5c1, #d97b9d);
+    color: #fff;
+    font-weight: 800;
+    font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+.admin-recip__user-info { flex: 1; min-width: 0; }
+.admin-recip__user-info strong { display: block; font-size: 13px; color: #4a3644; }
+.admin-recip__user-info small { font-size: 11.5px; color: #a6849a; }
+.admin-recip__selected {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed #f5d6e3;
+    font-size: 12.5px;
+    color: #8a6d7a;
+    text-align: right;
+}
+.admin-recip__selected strong { color: #b55a82; font-size: 14px; }
+
 /* ──── User risk UI ──── */
 .admin-risk {
     display: flex;

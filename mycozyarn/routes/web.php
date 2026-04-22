@@ -139,6 +139,9 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::get('thong-bao',                 [AdminNotification::class, 'index'])->name('notifications.index');
     Route::get('thong-bao/tao',             [AdminNotification::class, 'create'])->name('notifications.create');
     Route::post('thong-bao',                [AdminNotification::class, 'store'])->name('notifications.store');
+    Route::post('thong-bao/xoa-nhieu',      [AdminNotification::class, 'bulkDelete'])->name('notifications.bulkDelete');
+    Route::get('thong-bao/{id}/sua',        [AdminNotification::class, 'edit'])->name('notifications.edit');
+    Route::patch('thong-bao/{id}',          [AdminNotification::class, 'update'])->name('notifications.update');
     Route::delete('thong-bao/{id}',         [AdminNotification::class, 'destroy'])->name('notifications.destroy');
 });
 

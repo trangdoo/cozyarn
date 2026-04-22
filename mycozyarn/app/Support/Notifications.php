@@ -53,8 +53,39 @@ class Notifications
         $all = session('notifications', []);
         self::seedPromos($all, $userId);
         self::syncOrderTimelines($all, $userId);
+        self::syncBroadcastQueue($all, $userId);
 
         session(['notifications' => $all]);
+    }
+
+    /**
+     * Đồng bộ từ BroadcastQueue — admin gửi cho ai → push vào session của user đó khi họ load.
+     */
+    private static function syncBroadcastQueue(array &$all, int $userId): void
+    {
+        $user = Auth::user();
+        if (!$user) return;
+
+        $broadcasts = \App\Support\BroadcastQueue::deliverableFor($userId, $user->email ?? '', $user->role ?? 'user');
+        foreach ($broadcasts as $b) {
+            $notifId = "BROADCAST-{$b['id']}";
+            if (isset($all[$notifId])) continue;
+
+            $all[$notifId] = [
+                'id'         => $notifId,
+                'user_id'    => $userId,
+                'type'       => $b['type']    ?? 'promo',
+                'title'      => $b['title']   ?? 'Thông báo',
+                'content'    => $b['content'] ?? '',
+                'link'       => $b['link']    ?? null,
+                'icon'       => $b['icon']    ?? 'info',
+                'is_read'    => false,
+                'created_at' => $b['send_at'] ?? now()->toDateTimeString(),
+                'meta'       => $b['meta']    ?? [],
+            ];
+
+            \App\Support\BroadcastQueue::markDelivered($b['id'], $userId);
+        }
     }
 
     /**
