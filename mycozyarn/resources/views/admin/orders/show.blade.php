@@ -148,24 +148,44 @@
         </section>
 
         {{-- ═══ Lịch sử trạng thái ═══ --}}
+        @php
+            $extraStatusMap = $statusMap + ['paid' => 'Đã thanh toán'];
+            $stageDot = [
+                'pending'          => '#f3d88a',
+                'placed'           => '#f3d88a',
+                'paid'             => '#c4e8b7',
+                'confirmed'        => '#b5c9f0',
+                'shipping'         => '#f8bcd5',
+                'delivered'        => '#c4e8b7',
+                'received'         => '#c4e8b7',
+                'cancelled'        => '#f5b8a8',
+                'return_requested' => '#d5b8eb',
+                'returned'         => '#d5b8eb',
+            ];
+        @endphp
         <section class="admin-card">
-            <header class="admin-card__head"><h2>Lịch sử trạng thái</h2></header>
-            @if(count($history) === 0)
-                <div class="admin-empty"><p>Chưa có lịch sử thay đổi. Đơn vẫn ở trạng thái khởi tạo.</p></div>
-            @else
-                <ol class="od-history">
-                    @foreach(array_reverse($history) as $h)
-                        <li>
-                            <div class="od-history__dot"></div>
-                            <div class="od-history__body">
-                                <strong>{{ $statusMap[$h['from']] ?? $h['from'] }} → {{ $statusMap[$h['to']] ?? $h['to'] }}</strong>
-                                <p>{{ $h['note'] ?? '' }}</p>
-                                <small>bởi <strong>{{ $h['by'] ?? 'Hệ thống' }}</strong> · {{ \Carbon\Carbon::parse($h['at'])->format('H:i · d/m/Y') }}</small>
-                            </div>
-                        </li>
-                    @endforeach
-                </ol>
-            @endif
+            <header class="admin-card__head"><h2>Lịch sử trạng thái ({{ count($history) }})</h2></header>
+            <ol class="od-history">
+                @foreach(array_reverse($history) as $h)
+                    @php $dotColor = $stageDot[$h['to']] ?? '#d97b9d'; @endphp
+                    <li>
+                        <div class="od-history__dot" style="background:{{ $dotColor }}"></div>
+                        <div class="od-history__body">
+                            <strong>
+                                @if(empty($h['from']))
+                                    ✨ {{ $extraStatusMap[$h['to']] ?? $h['to'] }}
+                                @else
+                                    {{ $extraStatusMap[$h['from']] ?? $h['from'] }} → {{ $extraStatusMap[$h['to']] ?? $h['to'] }}
+                                @endif
+                            </strong>
+                            @if(!empty($h['note']))
+                                <p>{{ $h['note'] }}</p>
+                            @endif
+                            <small>bởi <strong>{{ $h['by'] ?? 'Hệ thống' }}</strong> · {{ \Carbon\Carbon::parse($h['at'])->format('H:i · d/m/Y') }}</small>
+                        </div>
+                    </li>
+                @endforeach
+            </ol>
         </section>
     </div>
 

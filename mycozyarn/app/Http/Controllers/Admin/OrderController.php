@@ -96,8 +96,40 @@ class OrderController extends Controller
             'customer'     => $customer,
             'otherOrders'  => $otherOrders,
             'orderReviews' => $orderReviews,
-            'history'      => $order['status_history'] ?? [],
+            'history'      => $this->buildFullHistory($order),
         ]);
+    }
+
+    private function buildFullHistory(array $order): array
+    {
+        $history = [];
+
+        // 1. Đặt đơn
+        $history[] = [
+            'from' => null,
+            'to'   => 'pending',
+            'by'   => $order['name'] ?? 'Khách hàng',
+            'at'   => $order['created_at'] ?? now()->toDateTimeString(),
+            'note' => 'Khách tạo đơn hàng' . (!empty($order['payment']) ? ' — thanh toán: ' . strtoupper($order['payment']) : ''),
+        ];
+
+        // 2. Thanh toán (nếu có)
+        if (!empty($order['paid_at'])) {
+            $history[] = [
+                'from' => 'pending',
+                'to'   => 'paid',
+                'by'   => $order['name'] ?? 'Khách hàng',
+                'at'   => $order['paid_at'],
+                'note' => 'Đã thanh toán',
+            ];
+        }
+
+        // 3. Các lần admin/user chuyển trạng thái
+        foreach ($order['status_history'] ?? [] as $h) {
+            $history[] = $h;
+        }
+
+        return $history;
     }
 
     /* ═══════════════════════ status actions ═══════════════════════ */
