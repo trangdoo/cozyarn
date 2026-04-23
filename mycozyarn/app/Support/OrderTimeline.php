@@ -48,10 +48,16 @@ class OrderTimeline
 
         $steps = [];
         foreach (self::STEPS as $i => $step) {
+            $at = $createdAt->copy()->addMinutes($step['threshold']);
+            $isFuture = $i > $current;
             $steps[] = [
                 ...$step,
                 'is_done'    => $i < $current,
                 'is_current' => $i === $current,
+                'at'         => $at,
+                'at_short'   => $at->format('H:i · d/m'),
+                'at_full'    => $at->format('H:i · d/m/Y'),
+                'is_future'  => $isFuture,
             ];
         }
 

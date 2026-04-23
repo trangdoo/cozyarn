@@ -6368,6 +6368,18 @@ a {
 .timeline__step.is-done    .timeline__label { color: #7f4e63; }
 .timeline__step.is-current .timeline__label { color: #b55a82; font-weight: 800; }
 
+.timeline__time {
+    display: block;
+    margin-top: 4px;
+    font-size: 11px;
+    color: #b17d94;
+    font-weight: 500;
+    line-height: 1.2;
+    letter-spacing: 0.1px;
+}
+.timeline__time--future { color: #c9a6b4; font-style: italic; }
+.timeline__step.is-current .timeline__time { color: #b55a82; font-weight: 700; }
+
 .timeline__note {
     display: flex;
     align-items: center;

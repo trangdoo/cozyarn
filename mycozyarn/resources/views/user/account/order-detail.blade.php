@@ -121,14 +121,21 @@
                                         @endif
                                     </span>
                                     <span class="timeline__label">{{ $step['label'] }}</span>
+                                    <span class="timeline__time @if($step['is_future']) timeline__time--future @endif" title="{{ $step['at_full'] }}">
+                                        @if($step['is_future'])
+                                            Dự kiến {{ $step['at_short'] }}
+                                        @else
+                                            {{ $step['at_short'] }}
+                                        @endif
+                                    </span>
                                 </li>
                             @endforeach
                         </ol>
                         <p class="timeline__note">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
                             Trạng thái sẽ tự động cập nhật theo thời gian.
-                            @if(!$canReview && $stageKey !== 'delivered')
-                                Bạn sẽ có thể đánh giá sản phẩm sau khi đơn hàng được giao thành công.
+                            @if(!$canReview)
+                                Bạn sẽ có thể đánh giá sản phẩm sau khi xác nhận đã nhận được hàng.
                             @endif
                         </p>
                     @endif

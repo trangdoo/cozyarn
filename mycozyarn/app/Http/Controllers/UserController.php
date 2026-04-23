@@ -120,7 +120,7 @@ class UserController extends Controller
             'order'               => $order,
             'timeline'            => $timeline,
             'itemReviews'         => $itemReviews,
-            'canReview'           => !$timeline['cancelled'] && $stageKey === 'delivered' && !$isReturned,
+            'canReview'           => !$timeline['cancelled'] && $isReceived && !$isReturned,
             'canCancel'           => $canCancel,
             'canConfirmReceived'  => $canConfirmReceived,
             'canReturn'           => $canReturn,

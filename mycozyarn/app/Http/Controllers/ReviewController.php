@@ -25,9 +25,8 @@ class ReviewController extends Controller
         $order  = $orders[$data['order_id']] ?? null;
         abort_unless($order && ($order['user_id'] ?? null) === Auth::id(), 403);
 
-        $stageKey = OrderTimeline::currentKey($order);
-        if ($stageKey !== 'delivered') {
-            return back()->withErrors(['rating' => 'Chỉ có thể đánh giá khi đơn đã giao thành công.']);
+        if (($order['status'] ?? '') !== 'received') {
+            return back()->withErrors(['rating' => 'Vui lòng xác nhận đã nhận được hàng trước khi đánh giá.']);
         }
 
         $item = null;
