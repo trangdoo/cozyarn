@@ -80,4 +80,95 @@ class AuthController extends Controller
         $request->session()->regenerateToken();
         return redirect('/')->with('cart_flash', 'Bạn đã đăng xuất.');
     }
+
+    /* ═══════════════════════ FORGOT PASSWORD ═══════════════════════ */
+
+    public function showForgotForm()
+    {
+        if (Auth::check()) return redirect('/');
+        return view('user.auth.forgot');
+    }
+
+    public function verifyForgotEmail(Request $request)
+    {
+        $data = $request->validate([
+            'email' => 'required|email',
+        ], [
+            'email.required' => 'Vui lòng nhập email.',
+            'email.email'    => 'Email không hợp lệ.',
+        ]);
+
+        $email = strtolower(trim($data['email']));
+        $user  = User::where('email', $email)->first();
+
+        if (!$user) {
+            return back()
+                ->withErrors(['email' => 'Không tìm thấy tài khoản với email này.'])
+                ->withInput();
+        }
+
+        if (($user->status ?? 'active') === 'blocked') {
+            return back()
+                ->withErrors(['email' => 'Tài khoản đã bị khoá. Vui lòng liên hệ shop.'])
+                ->withInput();
+        }
+
+        // Lưu email đã xác thực vào session, cho phép sang bước đặt lại mật khẩu
+        $request->session()->put('password_reset_email', $email);
+        $request->session()->put('password_reset_expires_at', now()->addMinutes(15)->toDateTimeString());
+
+        return redirect()->route('password.reset');
+    }
+
+    public function showResetForm(Request $request)
+    {
+        if (Auth::check()) return redirect('/');
+
+        $email   = $request->session()->get('password_reset_email');
+        $expires = $request->session()->get('password_reset_expires_at');
+
+        if (!$email || !$expires || now()->gt($expires)) {
+            $request->session()->forget(['password_reset_email', 'password_reset_expires_at']);
+            return redirect()->route('password.forgot')
+                ->withErrors(['email' => 'Phiên đặt lại mật khẩu đã hết hạn. Vui lòng thử lại.']);
+        }
+
+        return view('user.auth.reset', ['email' => $email]);
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $email   = $request->session()->get('password_reset_email');
+        $expires = $request->session()->get('password_reset_expires_at');
+
+        if (!$email || !$expires || now()->gt($expires)) {
+            $request->session()->forget(['password_reset_email', 'password_reset_expires_at']);
+            return redirect()->route('password.forgot')
+                ->withErrors(['email' => 'Phiên đặt lại mật khẩu đã hết hạn. Vui lòng thử lại.']);
+        }
+
+        $data = $request->validate([
+            'password'              => 'required|string|min:6|confirmed',
+            'password_confirmation' => 'required|string',
+        ], [
+            'password.required'  => 'Vui lòng nhập mật khẩu mới.',
+            'password.min'       => 'Mật khẩu phải có ít nhất 6 ký tự.',
+            'password.confirmed' => 'Xác nhận mật khẩu không khớp.',
+        ]);
+
+        $user = User::where('email', $email)->first();
+        if (!$user) {
+            $request->session()->forget(['password_reset_email', 'password_reset_expires_at']);
+            return redirect()->route('password.forgot')
+                ->withErrors(['email' => 'Không tìm thấy tài khoản.']);
+        }
+
+        $user->password = $data['password'];
+        $user->save();
+
+        $request->session()->forget(['password_reset_email', 'password_reset_expires_at']);
+
+        return redirect()->route('login')
+            ->with('cart_flash', 'Đổi mật khẩu thành công. Mời bạn đăng nhập.');
+    }
 }

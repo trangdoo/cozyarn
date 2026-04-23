@@ -221,8 +221,16 @@
     font-weight: 800;
     letter-spacing: 4px;
     font-size: 26px;
-    margin: 4px 0 26px;
+    margin: 4px 0 10px;
 }
+.auth-form__subtitle {
+    text-align: center;
+    color: #a6849a;
+    font-size: 13px;
+    margin: 0 0 22px;
+    line-height: 1.5;
+}
+.auth-form__subtitle strong { color: var(--rose-700); font-weight: 700; }
 
 /* input line style (giống ảnh: underline) */
 .auth-field {

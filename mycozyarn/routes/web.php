@@ -25,6 +25,11 @@ Route::get('register', [AuthController::class,'showRegisterForm'])->name('regist
 Route::post('register', [AuthController::class,'register']);
 Route::post('logout', [AuthController::class,'logout'])->name('logout');
 
+Route::get('quen-mat-khau',     [AuthController::class,'showForgotForm'])->name('password.forgot');
+Route::post('quen-mat-khau',    [AuthController::class,'verifyForgotEmail']);
+Route::get('dat-lai-mat-khau',  [AuthController::class,'showResetForm'])->name('password.reset');
+Route::post('dat-lai-mat-khau', [AuthController::class,'resetPassword']);
+
 Route::get('/tim-kiem', [SearchController::class, 'index'])->name('search');
 
 Route::get('/gio-hang', [CartController::class, 'index'])->name('cart.index');
