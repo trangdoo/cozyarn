@@ -1,5 +1,3 @@
-
-
 CREATE TABLE transactions (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
     sepay_id        BIGINT NOT NULL UNIQUE,

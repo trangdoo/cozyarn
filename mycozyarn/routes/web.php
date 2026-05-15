@@ -10,6 +10,7 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ReviewController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\WebHookController;
 use App\Http\Controllers\Admin\DashboardController    as AdminDashboard;
 use App\Http\Controllers\Admin\UserController         as AdminUser;
 use App\Http\Controllers\Admin\ProductController      as AdminProduct;
@@ -24,6 +25,10 @@ Route::post('login', [AuthController::class,'login']);
 Route::get('register', [AuthController::class,'showRegisterForm'])->name('register');
 Route::post('register', [AuthController::class,'register']);
 Route::post('logout', [AuthController::class,'logout'])->name('logout');
+
+/* ═════════════════════════════════════ WEBHOOK ═════════════════════════════════════ */
+// SePay gọi từ ngoài — không có session/CSRF (đã exclude trong bootstrap/app.php)
+Route::post('/webhook/sepay', [WebHookController::class, 'sepay'])->name('webhook.sepay');
 
 Route::get('quen-mat-khau',     [AuthController::class,'showForgotForm'])->name('password.forgot');
 Route::post('quen-mat-khau',    [AuthController::class,'verifyForgotEmail']);
