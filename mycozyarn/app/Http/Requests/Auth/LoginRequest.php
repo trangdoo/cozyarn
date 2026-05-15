@@ -14,9 +14,10 @@ class LoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email'    => 'required|email',
-            'password' => 'required|string|min:6',
-            'remember' => 'nullable',
+            // Login email không cần strict (đã đăng ký rồi); chỉ cần đúng định dạng cơ bản
+            'email'    => 'required|email|max:100',
+            'password' => 'required|string|min:6|max:100',
+            'remember' => 'nullable|boolean',
         ];
     }
 

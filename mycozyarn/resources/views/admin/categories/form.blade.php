@@ -2,7 +2,7 @@
 
 @php
     $isEdit = !empty($category);
-    $action = $isEdit ? route('admin.categories.update', $category['slug']) : route('admin.categories.store');
+    $action = $isEdit ? route('admin.categories.update', $category->slug) : route('admin.categories.store');
 @endphp
 
 @section('title', ($isEdit ? 'Sửa' : 'Thêm') . ' danh mục — CozyYarn')
@@ -28,13 +28,21 @@
         @endif
 
         <label>Tên danh mục *
-            <input type="text" name="name" required value="{{ old('name', $category['name'] ?? '') }}">
+            <input type="text" name="name" required maxlength="100" value="{{ old('name', $category->name ?? '') }}">
         </label>
+
+        @if($isEdit)
+            <label>Slug
+                <input type="text" name="slug" value="{{ old('slug', $category->slug) }}" placeholder="vd: len-soi" pattern="[a-z0-9\-]+">
+                <small>Chỉ chữ thường, số và dấu gạch ngang. Để trống nếu giữ nguyên.</small>
+            </label>
+        @endif
+
         <label>Mô tả
-            <textarea name="description" rows="3" maxlength="500">{{ old('description', $category['description'] ?? '') }}</textarea>
+            <textarea name="description" rows="3" maxlength="500">{{ old('description', $category->description ?? '') }}</textarea>
         </label>
         <label>Ảnh đại diện (URL)
-            <input type="text" name="image" value="{{ old('image', $category['image'] ?? '') }}" placeholder="/images/1.jpg">
+            <input type="text" name="image" maxlength="255" value="{{ old('image', $category->image ?? '') }}" placeholder="/images/1.jpg">
         </label>
 
         <div class="admin-form__actions">

@@ -362,6 +362,33 @@
 }
 .auth-alert ul { margin: 0; padding-left: 18px; }
 
+/* Variant nổi bật khi tài khoản bị admin khoá */
+.auth-alert--blocked {
+    background: linear-gradient(135deg, #fff2f5 0%, #ffe1e7 100%);
+    border-color: #e58aa1;
+    color: #8a1f3e;
+    padding: 14px 16px;
+}
+.auth-alert--blocked strong {
+    display: block;
+    font-size: 14px;
+    margin-bottom: 4px;
+}
+.auth-alert--blocked p {
+    margin: 0 0 6px;
+    font-size: 13px;
+    line-height: 1.5;
+}
+.auth-alert--blocked small {
+    display: block;
+    color: #6c2236;
+    font-size: 12px;
+}
+.auth-alert--blocked a {
+    color: var(--rose-600);
+    font-weight: 700;
+}
+
 .auth-swap {
     text-align: center;
     margin-top: 16px;
@@ -374,6 +401,25 @@
     margin-left: 4px;
 }
 .auth-swap a:hover { color: var(--rose-700); text-decoration: underline; }
+
+/* ------------------- REALTIME VALIDATION ------------------- */
+.auth-field.is-invalid input,
+.auth-field.is-invalid textarea {
+    border-color: #e58aa1 !important;
+    box-shadow: 0 0 0 3px rgba(229, 138, 161, 0.18) !important;
+}
+.auth-field.is-valid input,
+.auth-field.is-valid textarea {
+    border-color: #7fc99a !important;
+}
+.auth-field .field-error {
+    display: block;
+    margin: 4px 4px 0 4px;
+    color: #b23a63;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+}
 
 /* ------------------- RESPONSIVE ------------------- */
 @media (max-width: 760px) {

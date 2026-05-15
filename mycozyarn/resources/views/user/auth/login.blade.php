@@ -3,7 +3,7 @@
 @section('title', 'Đăng nhập — CozyYarn')
 
 @push('head')
-    @vite(['resources/css/auth.css'])
+    @vite(['resources/css/auth.css', 'resources/js/auth-validate.js'])
 @endpush
 
 @section('content')
@@ -75,11 +75,17 @@
             </div>
             <h2 class="auth-form__title">LOGIN</h2>
 
-            @if ($errors->any())
+            @if (session('account_blocked'))
+                <div class="auth-alert auth-alert--blocked" role="alert">
+                    <strong>⚠ Tài khoản đã bị khoá</strong>
+                    <p>{{ session('account_blocked') }}</p>
+                    <small>Cần hỗ trợ? Liên hệ <a href="mailto:support@cozyyarn.vn">support@cozyyarn.vn</a> để khiếu nại.</small>
+                </div>
+            @elseif ($errors->any())
                 <div class="auth-alert">{{ $errors->first() }}</div>
             @endif
 
-            <form method="POST" action="{{ route('login') }}">
+            <form method="POST" action="{{ route('login') }}" data-validate>
                 @csrf
 
                 <div class="auth-field">
@@ -89,7 +95,8 @@
                             <path d="M3 7l9 6 9-6"/>
                         </svg>
                     </span>
-                    <input type="email" name="email" value="{{ old('email') }}" placeholder="Email" required autofocus>
+                    <input type="email" name="email" value="{{ old('email') }}" placeholder="Email" required autofocus
+                           data-rule="email" data-required>
                 </div>
 
                 <div class="auth-field">
@@ -99,7 +106,9 @@
                             <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
                         </svg>
                     </span>
-                    <input type="password" name="password" placeholder="Password" required>
+                    {{-- data-hash: hash SHA-256 trước khi gửi server --}}
+                    <input type="password" name="password" placeholder="Password" required minlength="6"
+                           data-required data-hash>
                 </div>
 
                 <label class="auth-remember">

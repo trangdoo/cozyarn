@@ -12,6 +12,9 @@
             <h1>Tài khoản</h1>
             <p>Quản lý {{ $stats['total'] }} tài khoản trong hệ thống</p>
         </div>
+        <div class="admin-page__actions">
+            <a href="{{ route('admin.users.create') }}" class="admin-btn admin-btn--primary">+ Thêm tài khoản</a>
+        </div>
     </div>
 
     <div class="admin-stats admin-stats--compact">

@@ -3,7 +3,7 @@
 @section('title', 'Đăng ký — CozyYarn')
 
 @push('head')
-    @vite(['resources/css/auth.css'])
+    @vite(['resources/css/auth.css', 'resources/js/auth-validate.js'])
 @endpush
 
 @section('content')
@@ -81,7 +81,7 @@
                 </div>
             @endif
 
-            <form method="POST" action="{{ route('register') }}">
+            <form method="POST" action="{{ route('register') }}" data-validate>
                 @csrf
 
                 <div class="auth-field">
@@ -91,7 +91,8 @@
                             <path d="M4 20c1.7-3.4 5-5 8-5s6.3 1.6 8 5"/>
                         </svg>
                     </span>
-                    <input type="text" name="name" value="{{ old('name') }}" placeholder="Họ và tên" required autofocus>
+                    <input type="text" name="name" value="{{ old('name') }}" placeholder="Họ và tên" required autofocus
+                           maxlength="100" data-rule="name" data-required>
                 </div>
 
                 <div class="auth-field">
@@ -101,7 +102,8 @@
                             <path d="M3 7l9 6 9-6"/>
                         </svg>
                     </span>
-                    <input type="email" name="email" value="{{ old('email') }}" placeholder="Email" required>
+                    <input type="email" name="email" value="{{ old('email') }}" placeholder="Email" required
+                           maxlength="100" data-rule="email" data-required>
                 </div>
 
                 <div class="auth-field">
@@ -111,7 +113,8 @@
                             <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
                         </svg>
                     </span>
-                    <input type="password" name="password" placeholder="Mật khẩu" required>
+                    <input type="password" name="password" placeholder="Mật khẩu (≥6 ký tự, gồm chữ và số)" required
+                           minlength="6" maxlength="100" data-rule="password" data-required data-hash autocomplete="new-password">
                 </div>
 
                 <div class="auth-field">
@@ -122,7 +125,8 @@
                             <path d="M9 16l2 2 4-4"/>
                         </svg>
                     </span>
-                    <input type="password" name="password_confirmation" placeholder="Nhập lại mật khẩu" required>
+                    <input type="password" name="password_confirmation" placeholder="Nhập lại mật khẩu" required
+                           minlength="6" maxlength="100" data-match="password" data-required data-hash autocomplete="new-password">
                 </div>
 
                 <div class="auth-row" style="justify-content:flex-end">

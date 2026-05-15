@@ -105,7 +105,15 @@ php artisan test
 13) Ghi chú cho Windows
 - Trên Windows, dùng PowerShell hoặc WSL nếu gặp vấn đề quyền hoặc đường dẫn. Một số lệnh Linux (ví dụ cp) cần dùng lệnh tương đương Windows (copy) hoặc chạy trong Git Bash/WSL.
 
-14) Triển khai ra production (tổng quan)
+14a) Bảo mật mật khẩu — client-side hashing
+- Trình duyệt sẽ băm SHA-256(password) trước khi gửi lên server (xem `resources/js/auth-validate.js`).
+- Server cũng băm SHA-256 nếu input chưa phải hex 64 ký tự (`app/Support/ClientPasswordNormalizer.php`),
+  rồi bcrypt giá trị đó để lưu DB. Đường nào cũng cho `bcrypt(SHA256(plaintext))`.
+- Yêu cầu: **HTTPS** trong production (Web Crypto API yêu cầu secure context).
+- Nếu DB từ phiên bản cũ (chỉ có bcrypt(plaintext)) → các tài khoản cũ phải đặt lại mật khẩu
+  qua flow "Quên mật khẩu" hoặc admin update; hoặc chạy lại `php artisan migrate:fresh --seed` trên môi trường dev.
+
+15) Triển khai ra production (tổng quan)
 - Thiết lập web server (Nginx/Apache) trỏ vào public/.
 - Cài đặt biến môi trường trên máy chủ.
 - Chạy composer install --no-dev --optimize-autoloader và npm run build.

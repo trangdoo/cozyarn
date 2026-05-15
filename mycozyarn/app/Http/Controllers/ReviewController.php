@@ -2,24 +2,16 @@
 
 namespace App\Http\Controllers;
 
-use App\Support\OrderTimeline;
-use Illuminate\Http\Request;
+use App\Http\Requests\Review\CreateReviewRequest;
+use App\Http\Requests\Review\DeleteReviewRequest;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 
 class ReviewController extends Controller
 {
-    public function store(Request $request)
+    public function store(CreateReviewRequest $request)
     {
-        $data = $request->validate([
-            'order_id' => 'required|string',
-            'item_key' => 'required|string',
-            'rating'   => 'required|integer|min:1|max:5',
-            'comment'  => 'nullable|string|max:1000',
-        ], [
-            'rating.required' => 'Vui lòng chọn số sao.',
-            'rating.min'      => 'Chọn ít nhất 1 sao.',
-        ]);
+        $data = $request->validated();
 
         $orders = session('orders', []);
         $order  = $orders[$data['order_id']] ?? null;
@@ -61,9 +53,9 @@ class ReviewController extends Controller
         return back()->with('cart_flash', 'Cảm ơn bạn đã đánh giá!');
     }
 
-    public function destroy(Request $request)
+    public function destroy(DeleteReviewRequest $request)
     {
-        $data = $request->validate(['id' => 'required|string']);
+        $data = $request->validated();
 
         $reviews = session('reviews', []);
         $review  = $reviews[$data['id']] ?? null;
@@ -79,8 +71,8 @@ class ReviewController extends Controller
     {
         $userId = Auth::id();
         $all    = session('reviews', []);
-        $mine   = array_filter($all, fn($r) => ($r['user_id'] ?? null) === $userId);
-        uasort($mine, fn($a, $b) => strcmp($b['created_at'] ?? '', $a['created_at'] ?? ''));
+        $mine   = array_filter($all, fn ($r) => ($r['user_id'] ?? null) === $userId);
+        uasort($mine, fn ($a, $b) => strcmp($b['created_at'] ?? '', $a['created_at'] ?? ''));
 
         return view('user.account.my-reviews', ['reviews' => $mine]);
     }

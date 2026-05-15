@@ -2,15 +2,20 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Auth\ForgotPasswordRequest;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\RegisterRequest;
-use App\Models\User;
+use App\Http\Requests\Auth\ResetPasswordRequest;
+use App\Services\UserService;
+use App\Support\ClientPasswordNormalizer;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 
 class AuthController extends Controller
 {
+    public function __construct(private readonly UserService $users) {}
+
     public function showLoginForm()
     {
         if (Auth::check()) {
@@ -29,18 +34,22 @@ class AuthController extends Controller
 
     public function login(LoginRequest $request)
     {
-        $credentials = $request->only('email', 'password');
-        $remember    = (bool) $request->input('remember', false);
+        $email    = (string) $request->input('email');
+        $remember = (bool) $request->input('remember', false);
+
+        // Client băm SHA-256 trước khi gửi (xem auth-validate.js). Nếu JS không
+        // chạy được, server tự băm để giữ pipeline thống nhất với DB.
+        $password = ClientPasswordNormalizer::normalize((string) $request->input('password'));
 
         // Báo lỗi rõ ràng hơn khi tài khoản bị khoá
-        $user = User::where('email', $credentials['email'])->first();
-        if ($user && ($user->status ?? 'active') === 'blocked') {
+        $user = $this->users->findByEmail($email);
+        if ($user && !$this->users->isActive($user)) {
             return back()
                 ->withErrors(['email' => 'Tài khoản đã bị khoá. Vui lòng liên hệ shop để biết thêm chi tiết.'])
                 ->withInput($request->only('email'));
         }
 
-        if (Auth::attempt($credentials, $remember)) {
+        if (Auth::attempt(['email' => $email, 'password' => $password], $remember)) {
             $request->session()->regenerate();
 
             // Admin vào dashboard, user về trang chủ
@@ -57,11 +66,10 @@ class AuthController extends Controller
 
     public function register(RegisterRequest $request)
     {
-        // Password được auto-hash qua cast 'password' => 'hashed' trong User model
-        $user = User::create([
-            'name'     => trim((string) $request->input('name')),
-            'email'    => strtolower(trim((string) $request->input('email'))),
-            'password' => (string) $request->input('password'),
+        $user = $this->users->create([
+            'name'     => $request->input('name'),
+            'email'    => $request->input('email'),
+            'password' => $request->input('password'),
             'phone'    => $request->input('phone'),
             'role'     => 'user',
             'status'   => 'active',
@@ -89,17 +97,10 @@ class AuthController extends Controller
         return view('user.auth.forgot');
     }
 
-    public function verifyForgotEmail(Request $request)
+    public function verifyForgotEmail(ForgotPasswordRequest $request)
     {
-        $data = $request->validate([
-            'email' => 'required|email',
-        ], [
-            'email.required' => 'Vui lòng nhập email.',
-            'email.email'    => 'Email không hợp lệ.',
-        ]);
-
-        $email = strtolower(trim($data['email']));
-        $user  = User::where('email', $email)->first();
+        $data = $request->validated();
+        $user = $this->users->findByEmail($data['email']);
 
         if (!$user) {
             return back()
@@ -107,14 +108,14 @@ class AuthController extends Controller
                 ->withInput();
         }
 
-        if (($user->status ?? 'active') === 'blocked') {
+        if (!$this->users->isActive($user)) {
             return back()
                 ->withErrors(['email' => 'Tài khoản đã bị khoá. Vui lòng liên hệ shop.'])
                 ->withInput();
         }
 
         // Lưu email đã xác thực vào session, cho phép sang bước đặt lại mật khẩu
-        $request->session()->put('password_reset_email', $email);
+        $request->session()->put('password_reset_email', $user->email);
         $request->session()->put('password_reset_expires_at', now()->addMinutes(15)->toDateTimeString());
 
         return redirect()->route('password.reset');
@@ -136,7 +137,7 @@ class AuthController extends Controller
         return view('user.auth.reset', ['email' => $email]);
     }
 
-    public function resetPassword(Request $request)
+    public function resetPassword(ResetPasswordRequest $request)
     {
         $email   = $request->session()->get('password_reset_email');
         $expires = $request->session()->get('password_reset_expires_at');
@@ -147,24 +148,15 @@ class AuthController extends Controller
                 ->withErrors(['email' => 'Phiên đặt lại mật khẩu đã hết hạn. Vui lòng thử lại.']);
         }
 
-        $data = $request->validate([
-            'password'              => 'required|string|min:6|confirmed',
-            'password_confirmation' => 'required|string',
-        ], [
-            'password.required'  => 'Vui lòng nhập mật khẩu mới.',
-            'password.min'       => 'Mật khẩu phải có ít nhất 6 ký tự.',
-            'password.confirmed' => 'Xác nhận mật khẩu không khớp.',
-        ]);
+        $data = $request->validated();
 
-        $user = User::where('email', $email)->first();
-        if (!$user) {
+        try {
+            $this->users->resetPasswordByEmail($email, $data['password']);
+        } catch (\RuntimeException $e) {
             $request->session()->forget(['password_reset_email', 'password_reset_expires_at']);
             return redirect()->route('password.forgot')
-                ->withErrors(['email' => 'Không tìm thấy tài khoản.']);
+                ->withErrors(['email' => $e->getMessage()]);
         }
-
-        $user->password = $data['password'];
-        $user->save();
 
         $request->session()->forget(['password_reset_email', 'password_reset_expires_at']);
 

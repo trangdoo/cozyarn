@@ -2,6 +2,10 @@
 
 @section('title', 'Thông tin tài khoản — CozyYarn')
 
+@push('head')
+    @vite(['resources/js/auth-validate.js'])
+@endpush
+
 @section('content')
 <section class="acc-page">
     <div class="acc-page__inner">
@@ -30,14 +34,15 @@
                         </div>
                     @endif
 
-                    <form method="POST" action="{{ route('user.profile.update') }}">
+                    <form method="POST" action="{{ route('user.profile.update') }}" data-validate>
                         @csrf
                         @method('PATCH')
 
                         <div class="co-grid-2">
                             <label class="co-field">
                                 <span class="co-label">Họ và tên <em>*</em></span>
-                                <input type="text" name="name" value="{{ old('name', $user->name) }}" required>
+                                <input type="text" name="name" value="{{ old('name', $user->name) }}" required maxlength="100"
+                                       data-rule="name" data-required>
                             </label>
                             <label class="co-field">
                                 <span class="co-label">Email</span>
@@ -48,7 +53,8 @@
 
                         <label class="co-field">
                             <span class="co-label">Số điện thoại</span>
-                            <input type="tel" name="phone" value="{{ old('phone', $user->phone) }}" placeholder="0912 345 678">
+                            <input type="tel" name="phone" value="{{ old('phone', $user->phone) }}" placeholder="0912 345 678"
+                                   maxlength="20" data-rule="phone">
                         </label>
 
                         <label class="co-field">
@@ -75,23 +81,25 @@
                         </div>
                     @endif
 
-                    <form method="POST" action="{{ route('user.password.update') }}">
+                    <form method="POST" action="{{ route('user.password.update') }}" data-validate>
                         @csrf
                         @method('PATCH')
 
                         <label class="co-field">
                             <span class="co-label">Mật khẩu hiện tại <em>*</em></span>
-                            <input type="password" name="current_password" required>
+                            <input type="password" name="current_password" required data-required data-hash autocomplete="current-password">
                         </label>
 
                         <div class="co-grid-2">
                             <label class="co-field">
                                 <span class="co-label">Mật khẩu mới <em>*</em></span>
-                                <input type="password" name="new_password" required minlength="6">
+                                <input type="password" name="new_password" required minlength="6" maxlength="100"
+                                       data-rule="password" data-required data-hash autocomplete="new-password">
                             </label>
                             <label class="co-field">
                                 <span class="co-label">Nhập lại mật khẩu mới <em>*</em></span>
-                                <input type="password" name="new_password_confirmation" required minlength="6">
+                                <input type="password" name="new_password_confirmation" required minlength="6" maxlength="100"
+                                       data-match="new_password" data-required data-hash autocomplete="new-password">
                             </label>
                         </div>
 

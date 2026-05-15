@@ -11,6 +11,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Áp dụng cho mọi request web: kiểm tra trạng thái 'blocked' trên user
+        // đang đăng nhập sau khi session đã được khởi động — đẩy user bị khoá
+        // ra ngay lập tức, không cần đợi logout thủ công.
+        $middleware->web(append: [
+            \App\Http\Middleware\EnsureUserActive::class,
+        ]);
+
         $middleware->alias([
             'admin' => \App\Http\Middleware\EnsureAdmin::class,
         ]);

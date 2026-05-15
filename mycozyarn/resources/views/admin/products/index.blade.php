@@ -44,7 +44,7 @@
         <select name="category">
             <option value="all" @selected($filter['category'] === 'all')>Tất cả danh mục</option>
             @foreach($categories as $slug => $c)
-                <option value="{{ $slug }}" @selected($filter['category'] === $slug)>{{ $c['name'] }}</option>
+                <option value="{{ $slug }}" @selected($filter['category'] === $slug)>{{ $c->name }}</option>
             @endforeach
         </select>
         <select name="status">
@@ -128,62 +128,66 @@
             </thead>
             <tbody>
                 @forelse($products as $p)
-                    @php $key = $p['category_slug'] . '::' . $p['slug']; @endphp
+                    @php $catSlug = $p->category?->slug ?? ''; $key = $catSlug . '::' . $p->slug; @endphp
                     <tr data-row>
                         <td class="admin-check-col">
                             <input type="checkbox" name="ids[]" value="{{ $key }}" data-row-check>
                         </td>
                         <td data-col="image">
-                            <div class="admin-user-cell__thumb"><img src="{{ $p['image'] ?? '/images/1.jpg' }}" alt=""></div>
+                            <div class="admin-user-cell__thumb"><img src="{{ $p->thumbnail ?? '/images/1.jpg' }}" alt=""></div>
                         </td>
-                        <td data-col="id"><code class="admin-code">{{ $p['slug'] }}</code></td>
+                        <td data-col="id"><code class="admin-code">{{ $p->slug }}</code></td>
                         <td data-col="name">
-                            <strong>{{ $p['name'] }}</strong>
-                            <small style="display:block;color:#a6849a">{{ \Illuminate\Support\Str::limit($p['shortDesc'] ?? '', 50) }}</small>
+                            <strong>{{ $p->name }}</strong>
+                            <small style="display:block;color:#a6849a">{{ \Illuminate\Support\Str::limit($p->short_desc ?? '', 50) }}</small>
                         </td>
-                        <td data-col="category">{{ $categories[$p['category_slug']]['name'] ?? $p['category_slug'] }}</td>
+                        <td data-col="category">{{ $p->category?->name ?? $catSlug }}</td>
                         <td data-col="price">
-                            <strong>{{ number_format($p['price'], 0, ',', '.') }}₫</strong>
-                            @if(!empty($p['oldPrice']))
-                                <small style="display:block;text-decoration:line-through;color:#b09aa4">{{ number_format($p['oldPrice'], 0, ',', '.') }}₫</small>
+                            <strong>{{ number_format((float) $p->price, 0, ',', '.') }}₫</strong>
+                            @if(!empty($p->old_price))
+                                <small style="display:block;text-decoration:line-through;color:#b09aa4">{{ number_format((float) $p->old_price, 0, ',', '.') }}₫</small>
                             @endif
                         </td>
-                        <td data-col="quantity">{{ $p['quantity'] }}</td>
-                        <td data-col="unit">{{ $p['unit'] }}</td>
-                        <td data-col="status"><span class="admin-badge admin-badge--{{ $p['status'] ?? 'active' }}">{{ ($p['status'] ?? 'active') === 'active' ? 'Đang bán' : 'Ngưng' }}</span></td>
+                        <td data-col="quantity">{{ $p->stock_quantity }}</td>
+                        <td data-col="unit">{{ $p->unit }}</td>
+                        <td data-col="status"><span class="admin-badge admin-badge--{{ $p->status }}">{{ $p->status === 'active' ? 'Đang bán' : 'Ngưng' }}</span></td>
                         <td data-col="dates">
-                            <small title="Tạo: {{ $p['created_at'] }}">{{ \Carbon\Carbon::parse($p['updated_at'])->diffForHumans() }}</small>
+                            <small title="Tạo: {{ optional($p->created_at)->format('d/m/Y H:i') }}">{{ optional($p->updated_at)->diffForHumans() }}</small>
                         </td>
                         <td class="admin-table__actions">
-                            <a href="{{ route('admin.products.show', ['category' => $p['category_slug'], 'slug' => $p['slug']]) }}" class="admin-icon-btn" title="Xem chi tiết">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                                    <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/>
-                                    <circle cx="12" cy="12" r="3"/>
-                                </svg>
-                            </a>
-                            <a href="{{ route('admin.products.edit', ['category' => $p['category_slug'], 'slug' => $p['slug']]) }}" class="admin-icon-btn" title="Sửa">
-                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                                    <path d="M12 20h9M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4L16.5 3.5z" stroke-linecap="round" stroke-linejoin="round"/>
-                                </svg>
-                            </a>
-                            <form method="POST" action="{{ route('admin.products.duplicate', ['category' => $p['category_slug'], 'slug' => $p['slug']]) }}">
-                                @csrf
-                                <button type="submit" class="admin-icon-btn" title="Sao chép">
+                            @if($catSlug)
+                                <a href="{{ route('admin.products.show', ['category' => $catSlug, 'product' => $p->slug]) }}" class="admin-icon-btn" title="Xem chi tiết">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                                        <rect x="9" y="9" width="13" height="13" rx="2"/>
-                                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                                        <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/>
+                                        <circle cx="12" cy="12" r="3"/>
                                     </svg>
-                                </button>
-                            </form>
-                            <form method="POST" action="{{ route('admin.products.destroy', ['category' => $p['category_slug'], 'slug' => $p['slug']]) }}"
-                                  onsubmit="return confirm('Xoá sản phẩm này?');">
-                                @csrf @method('DELETE')
-                                <button type="submit" class="admin-icon-btn admin-icon-btn--danger" title="Xoá">
+                                </a>
+                                <a href="{{ route('admin.products.edit', ['category' => $catSlug, 'product' => $p->slug]) }}" class="admin-icon-btn" title="Sửa">
                                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-                                        <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6" stroke-linecap="round" stroke-linejoin="round"/>
+                                        <path d="M12 20h9M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4L16.5 3.5z" stroke-linecap="round" stroke-linejoin="round"/>
                                     </svg>
-                                </button>
-                            </form>
+                                </a>
+                                <form method="POST" action="{{ route('admin.products.duplicate', ['category' => $catSlug, 'product' => $p->slug]) }}">
+                                    @csrf
+                                    <button type="submit" class="admin-icon-btn" title="Sao chép">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                            <rect x="9" y="9" width="13" height="13" rx="2"/>
+                                            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                                        </svg>
+                                    </button>
+                                </form>
+                                <form method="POST" action="{{ route('admin.products.destroy', ['category' => $catSlug, 'product' => $p->slug]) }}"
+                                      onsubmit="return confirm('Xoá sản phẩm này?');">
+                                    @csrf @method('DELETE')
+                                    <button type="submit" class="admin-icon-btn admin-icon-btn--danger" title="Xoá">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                                            <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                    </button>
+                                </form>
+                            @else
+                                <small style="color:#b00">Thiếu danh mục</small>
+                            @endif
                         </td>
                     </tr>
                 @empty
@@ -237,7 +241,6 @@
         bulkCount.textContent = ids.length;
         bulkBar.hidden = ids.length === 0;
 
-        // Inject hidden inputs vào các form bulk
         document.querySelectorAll('[data-bulk-form]').forEach(form => {
             form.querySelectorAll('input[name="ids[]"]').forEach(n => n.remove());
             ids.forEach(id => {
@@ -249,7 +252,6 @@
             });
         });
 
-        // Sync select-all checkbox
         const all = rowChecks();
         selectAll.checked = all.length > 0 && ids.length === all.length;
         selectAll.indeterminate = ids.length > 0 && ids.length < all.length;
@@ -317,7 +319,6 @@
 
     /* ─── 6) Keyboard shortcuts ─── */
     document.addEventListener('keydown', (e) => {
-        // Bỏ qua khi đang gõ text
         const inField = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
 
         if (e.key === 'Escape') {
@@ -329,7 +330,6 @@
         if (!e.altKey) return;
 
         const k = e.key.toLowerCase();
-        // Các phím cho phép khi đang gõ trong search
         const allowInField = ['s'];
         if (inField && !allowInField.includes(k)) return;
 

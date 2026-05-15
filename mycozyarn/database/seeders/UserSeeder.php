@@ -9,9 +9,8 @@ class UserSeeder extends Seeder
 {
     public function run(): void
     {
-        // Admin mặc định — password tự hash qua cast 'password' => 'hashed' của User model.
-        // Dùng firstOrCreate với match trên email để idempotent: chạy lại seeder
-        // nhiều lần cũng không tạo trùng.
+        // User model mutator tự normalize SHA-256 + bcrypt nên seed truyền plaintext OK.
+        // Dùng firstOrCreate với match trên email → idempotent.
         User::firstOrCreate(
             ['email' => 'admin@cozyyarn.vn'],
             [

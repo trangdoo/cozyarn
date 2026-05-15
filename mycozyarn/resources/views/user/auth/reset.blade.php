@@ -3,7 +3,7 @@
 @section('title', 'Đặt lại mật khẩu — CozyYarn')
 
 @push('head')
-    @vite(['resources/css/auth.css'])
+    @vite(['resources/css/auth.css', 'resources/js/auth-validate.js'])
 @endpush
 
 @section('content')
@@ -76,7 +76,7 @@
                 <div class="auth-alert">{{ $errors->first() }}</div>
             @endif
 
-            <form method="POST" action="{{ route('password.reset') }}">
+            <form method="POST" action="{{ route('password.reset') }}" data-validate>
                 @csrf
 
                 <div class="auth-field">
@@ -86,7 +86,8 @@
                             <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
                         </svg>
                     </span>
-                    <input type="password" name="password" placeholder="Mật khẩu mới" required autofocus minlength="6">
+                    <input type="password" name="password" placeholder="Mật khẩu mới (≥6 ký tự, gồm chữ và số)" required autofocus
+                           minlength="6" maxlength="100" data-rule="password" data-required data-hash autocomplete="new-password">
                 </div>
 
                 <div class="auth-field">
@@ -97,7 +98,8 @@
                             <path d="M9 16l2 2 4-4" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
                     </span>
-                    <input type="password" name="password_confirmation" placeholder="Nhập lại mật khẩu mới" required minlength="6">
+                    <input type="password" name="password_confirmation" placeholder="Nhập lại mật khẩu mới" required
+                           minlength="6" maxlength="100" data-match="password" data-required data-hash autocomplete="new-password">
                 </div>
 
                 <div class="auth-row">

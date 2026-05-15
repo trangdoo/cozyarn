@@ -2,216 +2,173 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Http\Requests\Admin\Product\BulkActionRequest;
+use App\Http\Requests\Admin\Product\ImportProductsRequest;
+use App\Http\Requests\Admin\Product\StoreProductRequest;
+use App\Http\Requests\Admin\Product\UpdateProductRequest;
+use App\Models\Product;
+use App\Services\CategoryService;
+use App\Services\ProductService;
 use Illuminate\Http\Request;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Response;
-use Illuminate\Support\Str;
+use RuntimeException;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
- * Admin products — full-feature UI demo.
- * Đọc shop.php + overlay session:
- *   session('admin_products_added')   — records mới
- *   session('admin_products_edited')  — {cat::slug} => overlay fields
- *   session('admin_products_deleted') — list "cat::slug"
- * Khi migrate sang DB: đổi allProducts()/save ops sang Eloquent.
+ * Admin Product CRUD — đã chuyển hoàn toàn sang DB-backed (Eloquent qua Service).
+ * Hỗ trợ: list/filter/sort/paginate, create/edit/update/destroy,
+ * bulk delete & duplicate, duplicate đơn lẻ, import & export (CSV/JSON/XML).
  */
 class ProductController extends Controller
 {
     private const PAGE_SIZE = 12;
 
-    /* ═══════════════════════════════════════ list + filters + pagination ═══════════════════════════════════════ */
+    public function __construct(
+        private readonly ProductService $products,
+        private readonly CategoryService $categories,
+    ) {}
+
+    /* ───────────────────────── list ───────────────────────── */
 
     public function index(Request $request)
     {
-        $all = $this->allProducts();
-
-        $q        = trim((string) $request->query('q', ''));
-        $category = $request->query('category', 'all');
-        $status   = $request->query('status', 'all');
-        $sort     = $request->query('sort', 'updated_desc');
-
-        $filtered = array_filter($all, function ($p) use ($q, $category, $status) {
-            if ($q !== '') {
-                $needle = mb_strtolower($q);
-                $hay = mb_strtolower(($p['name'] ?? '') . ' ' . ($p['slug'] ?? '') . ' ' . ($p['shortDesc'] ?? '') . ' ' . ($p['desc'] ?? ''));
-                if (!str_contains($hay, $needle)) return false;
-            }
-            if ($category !== 'all' && ($p['category_slug'] ?? '') !== $category) return false;
-            if ($status !== 'all' && ($p['status'] ?? 'active') !== $status) return false;
-            return true;
-        });
-
-        // Sort
-        usort($filtered, match ($sort) {
-            'name_asc'     => fn($a, $b) => strcasecmp($a['name'] ?? '', $b['name'] ?? ''),
-            'name_desc'    => fn($a, $b) => strcasecmp($b['name'] ?? '', $a['name'] ?? ''),
-            'price_asc'    => fn($a, $b) => ($a['price'] ?? 0) <=> ($b['price'] ?? 0),
-            'price_desc'   => fn($a, $b) => ($b['price'] ?? 0) <=> ($a['price'] ?? 0),
-            'created_desc' => fn($a, $b) => strcmp($b['created_at'] ?? '', $a['created_at'] ?? ''),
-            default        => fn($a, $b) => strcmp($b['updated_at'] ?? $b['created_at'] ?? '', $a['updated_at'] ?? $a['created_at'] ?? ''),
-        });
-
-        $page = max(1, (int) $request->query('page', 1));
-        $items = \array_slice($filtered, ($page - 1) * self::PAGE_SIZE, self::PAGE_SIZE);
-
-        $paginator = new LengthAwarePaginator(
-            $items,
-            \count($filtered),
-            self::PAGE_SIZE,
-            $page,
-            ['path' => $request->url(), 'query' => $request->query()]
-        );
-
-        $shop = require resource_path('shop.php');
+        $filters = [
+            'q'        => trim((string) $request->query('q', '')),
+            'category' => $request->query('category', 'all'),
+            'status'   => $request->query('status', 'all'),
+            'sort'     => $request->query('sort', 'updated_desc'),
+        ];
 
         return view('admin.products.index', [
-            'products'   => $paginator,
-            'categories' => $shop['categories'],
-            'filter'     => compact('q', 'category', 'status', 'sort'),
+            'products'   => $this->products->paginate($filters, self::PAGE_SIZE),
+            'categories' => $this->categories->keyedBySlug(),
+            'filter'     => $filters,
         ]);
     }
 
-    /* ═══════════════════════════════════════ show / detail ═══════════════════════════════════════ */
+    /* ───────────────────────── show ───────────────────────── */
 
-    public function show(string $category, string $slug)
+    public function show(string $category, Product $product)
     {
-        $product = $this->findOrFail($category, $slug);
-        $shop = require resource_path('shop.php');
+        $this->ensureCategoryMatches($category, $product);
+        $product->loadMissing('category');
+
         return view('admin.products.show', [
             'product'  => $product,
-            'category' => $shop['categories'][$category] ?? ['name' => $category, 'slug' => $category],
+            'category' => $product->category,
         ]);
     }
 
-    /* ═══════════════════════════════════════ create / edit / update / delete ═══════════════════════════════════════ */
+    /* ───────────────────────── create / edit ───────────────────────── */
 
     public function create()
     {
-        $shop = require resource_path('shop.php');
-        return view('admin.products.form', ['categories' => $shop['categories'], 'product' => null]);
+        return view('admin.products.form', [
+            'categories' => $this->categories->keyedBySlug(),
+            'product'    => null,
+        ]);
     }
 
-    public function edit(string $category, string $slug)
+    public function edit(string $category, Product $product)
     {
-        $product = $this->findOrFail($category, $slug);
-        $shop = require resource_path('shop.php');
-        return view('admin.products.form', ['categories' => $shop['categories'], 'product' => $product]);
+        $this->ensureCategoryMatches($category, $product);
+
+        return view('admin.products.form', [
+            'categories' => $this->categories->keyedBySlug(),
+            'product'    => $product->load('category'),
+        ]);
     }
 
-    public function store(Request $request)
+    /* ───────────────────────── write ───────────────────────── */
+
+    public function store(StoreProductRequest $request)
     {
-        $data = $this->validateData($request);
-        $data['slug']       = Str::slug($data['name']) . '-' . substr((string) Str::uuid(), 0, 6);
-        $data['created_at'] = now()->toDateTimeString();
-        $data['updated_at'] = now()->toDateTimeString();
+        try {
+            $this->products->create($request->validated());
+        } catch (RuntimeException $e) {
+            return back()->withInput()->with('cart_flash', $e->getMessage());
+        }
 
-        $added = session('admin_products_added', []);
-        $added[] = $data;
-        session(['admin_products_added' => $added]);
-
-        return redirect()->route('admin.products.index')->with('cart_flash', 'Đã thêm sản phẩm mới.');
+        return redirect()
+            ->route('admin.products.index')
+            ->with('cart_flash', 'Đã thêm sản phẩm mới.');
     }
 
-    public function update(Request $request, string $category, string $slug)
+    public function update(UpdateProductRequest $request, string $category, Product $product)
     {
-        $this->findOrFail($category, $slug);
-        $data = $this->validateData($request);
-        $data['updated_at'] = now()->toDateTimeString();
+        $this->ensureCategoryMatches($category, $product);
 
-        $edited = session('admin_products_edited', []);
-        $edited["{$category}::{$slug}"] = $data;
-        session(['admin_products_edited' => $edited]);
+        try {
+            $this->products->update($product, $request->validated());
+        } catch (RuntimeException $e) {
+            return back()->withInput()->with('cart_flash', $e->getMessage());
+        }
 
-        return redirect()->route('admin.products.index')->with('cart_flash', 'Đã cập nhật sản phẩm.');
+        return redirect()
+            ->route('admin.products.index')
+            ->with('cart_flash', 'Đã cập nhật sản phẩm.');
     }
 
-    public function destroy(string $category, string $slug)
+    public function destroy(string $category, Product $product)
     {
-        $this->markDeleted($category, $slug);
+        $this->ensureCategoryMatches($category, $product);
+        $this->products->delete($product);
+
         return back()->with('cart_flash', 'Đã xoá sản phẩm.');
     }
 
-    /* ═══════════════════════════════════════ bulk delete ═══════════════════════════════════════ */
+    /* ───────────────────────── bulk ───────────────────────── */
 
-    public function bulkDelete(Request $request)
+    public function bulkDelete(BulkActionRequest $request)
     {
-        $data = $request->validate([
-            'ids'   => 'required|array|min:1',
-            'ids.*' => 'string',
-        ]);
-
-        $n = 0;
-        foreach ($data['ids'] as $id) {
-            [$cat, $slug] = array_pad(explode('::', $id, 2), 2, null);
-            if (!$cat || !$slug) continue;
-            $this->markDeleted($cat, $slug);
-            $n++;
-        }
-
+        $n = $this->products->deleteMany($request->input('ids', []));
         return back()->with('cart_flash', "Đã xoá {$n} sản phẩm.");
     }
 
-    /* ═══════════════════════════════════════ duplicate ═══════════════════════════════════════ */
-
-    public function duplicate(string $category, string $slug)
+    public function duplicate(string $category, Product $product)
     {
-        $src = $this->findOrFail($category, $slug);
-        $this->cloneProduct($src);
+        $this->ensureCategoryMatches($category, $product);
+        $this->products->duplicate($product);
+
         return back()->with('cart_flash', 'Đã sao chép sản phẩm.');
     }
 
-    public function duplicateMany(Request $request)
+    public function duplicateMany(BulkActionRequest $request)
     {
-        $data = $request->validate([
-            'ids'   => 'required|array|min:1',
-            'ids.*' => 'string',
-        ]);
-
-        $n = 0;
-        foreach ($data['ids'] as $id) {
-            [$cat, $slug] = array_pad(explode('::', $id, 2), 2, null);
-            if (!$cat || !$slug) continue;
-            $src = collect($this->allProducts())->first(fn($p) => ($p['category_slug'] ?? '') === $cat && ($p['slug'] ?? '') === $slug);
-            if (!$src) continue;
-            $this->cloneProduct($src);
-            $n++;
-        }
-
+        $n = $this->products->duplicateMany($request->input('ids', []));
         return back()->with('cart_flash', "Đã sao chép {$n} sản phẩm.");
     }
 
-    /* ═══════════════════════════════════════ export ═══════════════════════════════════════ */
+    /* ───────────────────────── export ───────────────────────── */
 
     public function export(Request $request, string $format)
     {
         abort_unless(\in_array($format, ['csv', 'json', 'xml'], true), 404);
 
-        $products = $this->allProducts();
+        $filters = [
+            'q'        => trim((string) $request->query('q', '')),
+            'category' => $request->query('category', 'all'),
+            'status'   => $request->query('status', 'all'),
+            'sort'     => $request->query('sort', 'updated_desc'),
+        ];
 
-        // Nếu có ids=... → chỉ export selection
-        $ids = $request->query('ids');
-        if ($ids) {
-            $keys = explode(',', $ids);
-            $products = array_values(array_filter($products, fn($p) =>
-                \in_array(($p['category_slug'] ?? '') . '::' . ($p['slug'] ?? ''), $keys, true)
-            ));
-        }
+        $idsParam = (string) $request->query('ids', '');
+        $ids = $idsParam !== '' ? explode(',', $idsParam) : [];
 
-        $rows = array_map(fn($p) => [
-            'id'          => $p['slug'] ?? '',
-            'name'        => $p['name'] ?? '',
-            'category'    => $p['category_slug'] ?? '',
-            'image'       => $p['image'] ?? '',
-            'unit'        => $p['unit'] ?? 'cuộn',
-            'quantity'    => (int) ($p['quantity'] ?? array_sum(array_column($p['variants'] ?? [], 'stock'))),
-            'price'       => (int) ($p['price'] ?? 0),
-            'description' => $p['shortDesc'] ?? $p['desc'] ?? '',
-            'status'      => $p['status'] ?? 'active',
-            'created_at'  => $p['created_at'] ?? '',
-            'updated_at'  => $p['updated_at'] ?? '',
-        ], $products);
+        $rows = $this->products->forExport($filters, $ids)->map(fn (Product $p) => [
+            'id'          => $p->slug,
+            'name'        => $p->name,
+            'category'    => $p->category?->slug ?? '',
+            'image'       => $p->thumbnail ?? '',
+            'unit'        => $p->unit ?? 'cuộn',
+            'quantity'    => (int) $p->stock_quantity,
+            'price'       => (int) $p->price,
+            'description' => $p->short_desc ?? $p->description ?? '',
+            'status'      => $p->status,
+            'created_at'  => optional($p->created_at)->toDateTimeString() ?? '',
+            'updated_at'  => optional($p->updated_at)->toDateTimeString() ?? '',
+        ])->all();
 
         $filename = 'products-' . now()->format('Ymd-His');
 
@@ -222,19 +179,15 @@ class ProductController extends Controller
         };
     }
 
-    /* ═══════════════════════════════════════ import ═══════════════════════════════════════ */
+    /* ───────────────────────── import ───────────────────────── */
 
     public function importForm()
     {
         return view('admin.products.import');
     }
 
-    public function import(Request $request)
+    public function import(ImportProductsRequest $request)
     {
-        $request->validate([
-            'file' => 'required|file|max:10240|mimes:csv,txt,json,xml',
-        ]);
-
         $file    = $request->file('file');
         $ext     = strtolower($file->getClientOriginalExtension());
         $content = file_get_contents($file->getRealPath());
@@ -246,115 +199,23 @@ class ProductController extends Controller
             default      => [],
         };
 
-        $added = session('admin_products_added', []);
-        $n = 0;
-        foreach ($rows as $r) {
-            if (empty($r['name'])) continue;
-            $added[] = [
-                'slug'          => $r['id'] ?: Str::slug($r['name']) . '-' . substr((string) Str::uuid(), 0, 6),
-                'name'          => $r['name'],
-                'category_slug' => $r['category'] ?? 'len-soi',
-                'image'         => $r['image'] ?? '/images/1.jpg',
-                'unit'          => $r['unit'] ?? 'cuộn',
-                'quantity'      => (int) ($r['quantity'] ?? 0),
-                'price'         => (int) ($r['price'] ?? 0),
-                'shortDesc'     => $r['description'] ?? '',
-                'status'        => $r['status'] ?? 'active',
-                'created_at'    => now()->toDateTimeString(),
-                'updated_at'    => now()->toDateTimeString(),
-            ];
-            $n++;
-        }
-        session(['admin_products_added' => $added]);
+        $n = $this->products->importRows($rows);
 
-        return redirect()->route('admin.products.index')->with('cart_flash', "Đã nhập {$n} sản phẩm từ file .{$ext}");
+        return redirect()
+            ->route('admin.products.index')
+            ->with('cart_flash', "Đã nhập {$n} sản phẩm từ file .{$ext}");
     }
 
-    /* ═══════════════════════════════════════ helpers ═══════════════════════════════════════ */
+    /* ───────────────────────── helpers ───────────────────────── */
 
-    private function validateData(Request $request): array
+    /**
+     * Đảm bảo {category} trong URL khớp với category của product.
+     * Trả 404 nếu không khớp để tránh URL gãy hiển thị nhầm sản phẩm.
+     */
+    private function ensureCategoryMatches(string $categorySlug, Product $product): void
     {
-        return $request->validate([
-            'name'          => 'required|string|max:200',
-            'category_slug' => 'required|string|max:80',
-            'shortDesc'     => 'required|string|max:500',
-            'desc'          => 'nullable|string|max:3000',
-            'price'         => 'required|integer|min:0',
-            'oldPrice'      => 'nullable|integer|min:0',
-            'quantity'      => 'required|integer|min:0',
-            'unit'          => 'required|string|max:30',
-            'image'         => 'nullable|string|max:300',
-            'tag'           => 'nullable|string|max:30',
-            'status'        => 'required|in:active,inactive',
-        ]);
-    }
-
-    private function findOrFail(string $category, string $slug): array
-    {
-        $product = collect($this->allProducts())->first(fn($p) =>
-            ($p['category_slug'] ?? '') === $category && ($p['slug'] ?? '') === $slug
-        );
-        abort_unless($product, 404);
-        return $product;
-    }
-
-    private function markDeleted(string $category, string $slug): void
-    {
-        $deleted = session('admin_products_deleted', []);
-        $deleted[] = "{$category}::{$slug}";
-        session(['admin_products_deleted' => array_unique($deleted)]);
-
-        // Cũng xoá khỏi added nếu là record mới tự thêm
-        $added = session('admin_products_added', []);
-        $added = array_values(array_filter($added, fn($p) =>
-            !(($p['category_slug'] ?? '') === $category && ($p['slug'] ?? '') === $slug)
-        ));
-        session(['admin_products_added' => $added]);
-    }
-
-    private function cloneProduct(array $src): void
-    {
-        $clone = $src;
-        $clone['slug']       = Str::slug($src['name']) . '-copy-' . substr((string) Str::uuid(), 0, 5);
-        $clone['name']       = $src['name'] . ' (Bản sao)';
-        $clone['created_at'] = now()->toDateTimeString();
-        $clone['updated_at'] = now()->toDateTimeString();
-
-        $added = session('admin_products_added', []);
-        $added[] = $clone;
-        session(['admin_products_added' => $added]);
-    }
-
-    private function allProducts(): array
-    {
-        $shop    = require resource_path('shop.php');
-        $deleted = session('admin_products_deleted', []);
-        $edited  = session('admin_products_edited', []);
-        $added   = session('admin_products_added', []);
-
-        $result = [];
-        foreach ($shop['products'] as $catSlug => $list) {
-            foreach ($list as $p) {
-                $key = "{$catSlug}::{$p['slug']}";
-                if (\in_array($key, $deleted, true)) continue;
-                $p['category_slug'] = $catSlug;
-                $p['quantity']   ??= array_sum(array_column($p['variants'] ?? [], 'stock'));
-                $p['unit']       ??= 'cuộn';
-                $p['created_at'] ??= '2026-01-01 00:00:00';
-                $p['updated_at'] ??= '2026-01-01 00:00:00';
-                if (isset($edited[$key])) $p = [...$p, ...$edited[$key]];
-                $result[] = $p;
-            }
-        }
-        foreach ($added as $p) {
-            if (!isset($p['category_slug'])) continue;
-            $p['quantity']   ??= 0;
-            $p['unit']       ??= 'cuộn';
-            $p['created_at'] ??= now()->toDateTimeString();
-            $p['updated_at'] ??= now()->toDateTimeString();
-            $result[] = $p;
-        }
-        return $result;
+        $product->loadMissing('category');
+        abort_unless($product->category && $product->category->slug === $categorySlug, 404);
     }
 
     /* ─── export formats ─── */
@@ -364,11 +225,10 @@ class ProductController extends Controller
         $cols = ['id', 'name', 'category', 'image', 'unit', 'quantity', 'price', 'description', 'status', 'created_at', 'updated_at'];
         return Response::streamDownload(function () use ($rows, $cols) {
             $out = fopen('php://output', 'w');
-            // BOM để Excel đọc Unicode
             fprintf($out, \chr(0xEF) . \chr(0xBB) . \chr(0xBF));
             fputcsv($out, $cols);
             foreach ($rows as $r) {
-                fputcsv($out, array_map(fn($c) => $r[$c] ?? '', $cols));
+                fputcsv($out, array_map(fn ($c) => $r[$c] ?? '', $cols));
             }
             fclose($out);
         }, "{$filename}.csv", ['Content-Type' => 'text/csv; charset=UTF-8']);
@@ -410,7 +270,6 @@ class ProductController extends Controller
 
     private function parseCsv(string $content): array
     {
-        // Strip BOM
         $content = preg_replace('/^\xEF\xBB\xBF/', '', $content);
         $lines = preg_split('/\r\n|\n|\r/', trim($content));
         if (\count($lines) < 2) return [];

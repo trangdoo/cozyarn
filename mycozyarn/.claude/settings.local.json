@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -n \"session\\\\|DB::\\\\|Model\\\\|Eloquent\\\\|use App\\\\\\\\\\\\\\\\Models\" /e/cozyarn/mycozyarn/app/Support/Cart.php /e/cozyarn/mycozyarn/app/Support/Notifications.php /e/cozyarn/mycozyarn/app/Support/BroadcastQueue.php /e/cozyarn/mycozyarn/app/Support/OrderTimeline.php)",
+      "Bash(php -l app/Interfaces/UserRepositoryInterface.php)",
+      "Bash(php -l app/Repositories/UserRepository.php)",
+      "Bash(php -l app/Services/UserService.php)",
+      "Bash(php -l app/Providers/AppServiceProvider.php)",
+      "Bash(php artisan *)",
+      "Bash(php -l app/Http/Requests/User/UpdatePasswordRequest.php)",
+      "Bash(php -l app/Http/Requests/Admin/User/StoreUserRequest.php)",
+      "Bash(php -l app/Http/Requests/Admin/User/UpdateUserRequest.php)",
+      "Bash(php -l app/Http/Controllers/AuthController.php)",
+      "Bash(php -l app/Http/Controllers/UserController.php)",
+      "Bash(php -l app/Http/Controllers/Admin/UserController.php)",
+      "Bash(node --check resources/js/auth-validate.js)"
+    ]
+  }
+}

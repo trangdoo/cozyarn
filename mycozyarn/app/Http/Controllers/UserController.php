@@ -2,17 +2,20 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\User\UpdatePasswordRequest;
 use App\Http\Requests\User\UpdateProfileRequest;
+use App\Services\UserService;
 use App\Support\Notifications;
 use App\Support\OrderTimeline;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 
 class UserController extends Controller
 {
+    public function __construct(private readonly UserService $users) {}
+
     public function profile()
     {
         return view('user.account.profile', [
@@ -22,32 +25,19 @@ class UserController extends Controller
 
     public function updateProfile(UpdateProfileRequest $request)
     {
-        $user = Auth::user();
-        $user->fill($request->validated());
-        $user->save();
+        $this->users->updateProfile(Auth::user(), $request->validated());
 
         return back()->with('cart_flash', 'Cập nhật thông tin thành công.');
     }
 
-    public function updatePassword(Request $request)
+    public function updatePassword(UpdatePasswordRequest $request)
     {
-        $data = $request->validate([
-            'current_password' => 'required|string',
-            'new_password'     => 'required|string|min:6|max:100|confirmed',
-        ], [
-            'current_password.required' => 'Vui lòng nhập mật khẩu hiện tại.',
-            'new_password.required'     => 'Vui lòng nhập mật khẩu mới.',
-            'new_password.min'          => 'Mật khẩu mới phải có ít nhất 6 ký tự.',
-            'new_password.confirmed'    => 'Mật khẩu mới nhập lại không khớp.',
-        ]);
-
-        $user = Auth::user();
-        if (!Hash::check($data['current_password'], $user->password)) {
-            return back()->withErrors(['current_password' => 'Mật khẩu hiện tại không đúng.']);
-        }
-
-        $user->password = $data['new_password']; // auto-hash via User model cast
-        $user->save();
+        // Service tự throw ValidationException nếu pass cũ sai → redirect về form với lỗi.
+        $this->users->changePassword(
+            Auth::user(),
+            $request->input('current_password'),
+            $request->input('new_password'),
+        );
 
         return back()->with('cart_flash', 'Đổi mật khẩu thành công.');
     }

@@ -3,7 +3,7 @@
 @section('title', 'Quên mật khẩu — CozyYarn')
 
 @push('head')
-    @vite(['resources/css/auth.css'])
+    @vite(['resources/css/auth.css', 'resources/js/auth-validate.js'])
 @endpush
 
 @section('content')
@@ -76,7 +76,7 @@
                 <div class="auth-alert">{{ $errors->first() }}</div>
             @endif
 
-            <form method="POST" action="{{ route('password.forgot') }}">
+            <form method="POST" action="{{ route('password.forgot') }}" data-validate>
                 @csrf
 
                 <div class="auth-field">
@@ -86,7 +86,8 @@
                             <path d="M3 7l9 6 9-6"/>
                         </svg>
                     </span>
-                    <input type="email" name="email" value="{{ old('email') }}" placeholder="Email của bạn" required autofocus>
+                    <input type="email" name="email" value="{{ old('email') }}" placeholder="Email của bạn" required autofocus
+                           maxlength="100" data-rule="email" data-required>
                 </div>
 
                 <div class="auth-row">

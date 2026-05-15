@@ -10828,6 +10828,27 @@ a {
 }
 .admin-checkbox input { width: auto !important; }
 
+/* ─── Realtime validation states (admin) ─── */
+.admin-form label.is-invalid input,
+.admin-form label.is-invalid textarea,
+.admin-form label.is-invalid select {
+    border-color: #d97b9d !important;
+    box-shadow: 0 0 0 3px rgba(217,123,157,0.18) !important;
+}
+.admin-form label.is-valid input,
+.admin-form label.is-valid textarea,
+.admin-form label.is-valid select {
+    border-color: #7fc99a !important;
+}
+.admin-form .field-error {
+    display: block;
+    margin-top: 4px;
+    color: #a63652;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+}
+
 .admin-errors {
     padding: 12px 14px;
     background: #fceaef;

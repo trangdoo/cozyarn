@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Category extends Model
 {
@@ -10,11 +11,17 @@ class Category extends Model
         'name',
         'slug',
         'description',
+        'image',
     ];
 
-    // Category có nhiều Product
-    public function products()
+    public function products(): HasMany
     {
         return $this->hasMany(Product::class);
+    }
+
+    /** Sử dụng slug làm route key cho mọi route binding của Category. */
+    public function getRouteKeyName(): string
+    {
+        return 'slug';
     }
 }

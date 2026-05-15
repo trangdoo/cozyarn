@@ -87,6 +87,8 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
 
     // Users
     Route::get('tai-khoan',                 [AdminUser::class, 'index'])->name('users.index');
+    Route::get('tai-khoan/tao',             [AdminUser::class, 'create'])->name('users.create');
+    Route::post('tai-khoan',                [AdminUser::class, 'store'])->name('users.store');
     Route::get('tai-khoan/{user}',          [AdminUser::class, 'show'])->name('users.show');
     Route::patch('tai-khoan/{user}',        [AdminUser::class, 'update'])->name('users.update');
     Route::delete('tai-khoan/{user}',       [AdminUser::class, 'destroy'])->name('users.destroy');
@@ -102,19 +104,19 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
         ->where('format', 'csv|json|xml')->name('products.export');
     Route::post('san-pham/xoa-nhieu',                   [AdminProduct::class, 'bulkDelete'])->name('products.bulkDelete');
     Route::post('san-pham/sao-chep-nhieu',              [AdminProduct::class, 'duplicateMany'])->name('products.duplicateMany');
-    Route::get('san-pham/{category}/{slug}/chi-tiet',   [AdminProduct::class, 'show'])->name('products.show');
-    Route::get('san-pham/{category}/{slug}/sua',        [AdminProduct::class, 'edit'])->name('products.edit');
-    Route::patch('san-pham/{category}/{slug}',          [AdminProduct::class, 'update'])->name('products.update');
-    Route::delete('san-pham/{category}/{slug}',         [AdminProduct::class, 'destroy'])->name('products.destroy');
-    Route::post('san-pham/{category}/{slug}/sao-chep',  [AdminProduct::class, 'duplicate'])->name('products.duplicate');
+    Route::get('san-pham/{category}/{product}/chi-tiet',   [AdminProduct::class, 'show'])->name('products.show');
+    Route::get('san-pham/{category}/{product}/sua',        [AdminProduct::class, 'edit'])->name('products.edit');
+    Route::patch('san-pham/{category}/{product}',          [AdminProduct::class, 'update'])->name('products.update');
+    Route::delete('san-pham/{category}/{product}',         [AdminProduct::class, 'destroy'])->name('products.destroy');
+    Route::post('san-pham/{category}/{product}/sao-chep',  [AdminProduct::class, 'duplicate'])->name('products.duplicate');
 
     // Categories
-    Route::get('danh-muc',                  [AdminCategory::class, 'index'])->name('categories.index');
-    Route::get('danh-muc/tao',              [AdminCategory::class, 'create'])->name('categories.create');
-    Route::post('danh-muc',                 [AdminCategory::class, 'store'])->name('categories.store');
-    Route::get('danh-muc/{slug}/sua',       [AdminCategory::class, 'edit'])->name('categories.edit');
-    Route::patch('danh-muc/{slug}',         [AdminCategory::class, 'update'])->name('categories.update');
-    Route::delete('danh-muc/{slug}',        [AdminCategory::class, 'destroy'])->name('categories.destroy');
+    Route::get('danh-muc',                      [AdminCategory::class, 'index'])->name('categories.index');
+    Route::get('danh-muc/tao',                  [AdminCategory::class, 'create'])->name('categories.create');
+    Route::post('danh-muc',                     [AdminCategory::class, 'store'])->name('categories.store');
+    Route::get('danh-muc/{category}/sua',       [AdminCategory::class, 'edit'])->name('categories.edit');
+    Route::patch('danh-muc/{category}',         [AdminCategory::class, 'update'])->name('categories.update');
+    Route::delete('danh-muc/{category}',        [AdminCategory::class, 'destroy'])->name('categories.destroy');
 
     // Blog
     Route::get('blog',                      [AdminBlog::class, 'index'])->name('blog.index');

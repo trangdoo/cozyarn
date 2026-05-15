@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Order\BuyNowRequest;
+use App\Http\Requests\Order\CreateOrderRequest;
+use App\Http\Requests\Order\StartCheckoutRequest;
 use App\Support\Cart;
-use Illuminate\Http\Request;
 
 class CheckoutController
 {
@@ -12,18 +14,11 @@ class CheckoutController
     private const int SHIPPING_FEE = 25000;
 
     /** Bước 1: nhận selected keys từ cart, lưu vào session rồi redirect sang GET. */
-    public function start(Request $request)
+    public function start(StartCheckoutRequest $request)
     {
-        $data = $request->validate([
-            'keys'   => 'required|array|min:1',
-            'keys.*' => 'string',
-        ], [
-            'keys.required' => 'Vui lòng chọn ít nhất 1 sản phẩm để thanh toán.',
-            'keys.min'      => 'Vui lòng chọn ít nhất 1 sản phẩm để thanh toán.',
-        ]);
-
+        $data  = $request->validated();
         $items = Cart::items();
-        $keys  = array_values(array_filter($data['keys'], fn($k) => isset($items[$k])));
+        $keys  = array_values(array_filter($data['keys'], fn ($k) => isset($items[$k])));
 
         if (empty($keys)) {
             return back()->withErrors(['keys' => 'Không có sản phẩm hợp lệ nào được chọn.']);
@@ -61,20 +56,9 @@ class CheckoutController
     }
 
     /** Bước 3: user submit form → tạo đơn hàng → redirect success. */
-    public function place(Request $request)
+    public function place(CreateOrderRequest $request)
     {
-        $data = $request->validate([
-            'name'     => 'required|string|max:100',
-            'phone'    => ['required','string','max:20','regex:/^[0-9+\s\-]{9,20}$/'],
-            'province' => 'required|string|max:100',
-            'district' => 'required|string|max:100',
-            'address'  => 'required|string|max:255',
-            'note'     => 'nullable|string|max:500',
-            'payment'  => 'required|in:cod,bank,momo',
-        ], [
-            'phone.regex' => 'Số điện thoại không hợp lệ.',
-        ]);
-
+        $data  = $request->validated();
         $keys  = session('checkout_keys', []);
         $items = Cart::items();
 
@@ -109,12 +93,10 @@ class CheckoutController
             'user_id'     => auth()->id(),
         ];
 
-        // Lưu vào session orders (giữ lại làm lịch sử đơn trong phiên này)
         $orders = session('orders', []);
         $orders[$orderId] = $order;
         session(['orders' => $orders]);
 
-        // Xoá item đã đặt khỏi giỏ
         foreach ($keys as $k) {
             Cart::remove($k);
         }
@@ -124,21 +106,11 @@ class CheckoutController
     }
 
     /** "Mua ngay" — thêm sản phẩm vào giỏ rồi đi thẳng checkout với mỗi item đó. */
-    public function buyNow(Request $request)
+    public function buyNow(BuyNowRequest $request)
     {
-        $data = $request->validate([
-            'category' => 'required|string',
-            'slug'     => 'required|string',
-            'name'     => 'required|string',
-            'image'    => 'nullable|string',
-            'price'    => 'required|integer|min:0',
-            'qty'      => 'nullable|integer|min:1|max:99',
-            'variant'  => 'nullable|string',
-            'size'     => 'nullable|string',
-        ]);
-
-        $qty = (int) ($data['qty'] ?? 1);
-        $key = Cart::makeKey(
+        $data = $request->validated();
+        $qty  = (int) ($data['qty'] ?? 1);
+        $key  = Cart::makeKey(
             $data['category'],
             $data['slug'],
             $data['variant'] ?? null,
@@ -177,8 +149,7 @@ class CheckoutController
             $subtotal += ((int) $it['price']) * $qty;
             $qtySum   += $qty;
         }
-        // Miễn phí ship khi: tổng tiền >= 500k HOẶC tổng số lượng >= 10
-        $freeShip = $subtotal >= self::FREE_SHIP_THRESHOLD || $qtySum >= self::FREE_SHIP_QTY;
+        $freeShip    = $subtotal >= self::FREE_SHIP_THRESHOLD || $qtySum >= self::FREE_SHIP_QTY;
         $shippingFee = $freeShip ? 0 : self::SHIPPING_FEE;
         return [$subtotal, $shippingFee, $subtotal + $shippingFee];
     }
