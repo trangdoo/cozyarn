@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Support\AdminInbox;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
@@ -172,6 +173,20 @@ class ChatController extends Controller
 
         $all[$threadId] = $thread;
         session(['chats' => $all]);
+
+        // Push admin inbox: tin nhắn mới từ user. Dùng id deterministic theo thread →
+        // tin nhắn liên tục cùng thread chỉ tạo 1 notification chưa-đọc (gộp lại).
+        $userName = Auth::user()->name ?? 'Khách';
+        AdminInbox::push([
+            'id'      => 'CHAT-' . $threadId,
+            'type'    => 'message',
+            'title'   => "Tin nhắn mới từ {$userName}",
+            'content' => $hasContent
+                ? mb_substr($data['content'], 0, 140)
+                : '📷 Đã gửi một ảnh',
+            'link'    => route('admin.chat.show', ['threadId' => $threadId]),
+            'meta'    => ['thread_id' => $threadId, 'user_id' => Auth::id()],
+        ]);
 
         return redirect()->route('user.chat.thread', ['threadId' => $threadId]);
     }

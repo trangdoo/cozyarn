@@ -19,6 +19,8 @@ use App\Http\Controllers\Admin\BlogController         as AdminBlog;
 use App\Http\Controllers\Admin\OrderController        as AdminOrder;
 use App\Http\Controllers\Admin\ChatController         as AdminChat;
 use App\Http\Controllers\Admin\NotificationController as AdminNotification;
+use App\Http\Controllers\Admin\PluginController        as AdminPlugin;
+use App\Http\Controllers\Admin\SkinController          as AdminSkin;
 
 Route::get('login', [AuthController::class,'showLoginForm'])->name('login');
 Route::post('login', [AuthController::class,'login']);
@@ -37,18 +39,29 @@ Route::post('dat-lai-mat-khau', [AuthController::class,'resetPassword']);
 
 Route::get('/tim-kiem', [SearchController::class, 'index'])->name('search');
 
-Route::get('/gio-hang', [CartController::class, 'index'])->name('cart.index');
-Route::post('/gio-hang/them', [CartController::class, 'add'])->name('cart.add');
-Route::patch('/gio-hang', [CartController::class, 'update'])->name('cart.update');
-Route::delete('/gio-hang/tat-ca', [CartController::class, 'clear'])->name('cart.clear');
-Route::delete('/gio-hang', [CartController::class, 'remove'])->name('cart.remove');
+// Giỏ hàng & thanh toán — bắt buộc đăng nhập. Guest bấm "Thêm vào giỏ" / "Mua ngay"
+// sẽ bị middleware 'auth' đẩy về trang login (xem product.blade.php cho UX guest).
+Route::middleware('auth')->group(function () {
+    Route::get('/gio-hang', [CartController::class, 'index'])->name('cart.index');
+    Route::post('/gio-hang/them', [CartController::class, 'add'])->name('cart.add');
+    Route::patch('/gio-hang', [CartController::class, 'update'])->name('cart.update');
+    Route::delete('/gio-hang/tat-ca', [CartController::class, 'clear'])->name('cart.clear');
+    Route::delete('/gio-hang', [CartController::class, 'remove'])->name('cart.remove');
 
-Route::post('/thanh-toan/bat-dau',      [CheckoutController::class, 'start'])->name('checkout.start');
-Route::post('/mua-ngay',                [CheckoutController::class, 'buyNow'])->name('checkout.buyNow');
-Route::get('/thanh-toan',               [CheckoutController::class, 'index'])->name('checkout.index');
-Route::post('/thanh-toan',              [CheckoutController::class, 'place'])->name('checkout.place');
-Route::get('/dat-hang-thanh-cong/{id}', [CheckoutController::class, 'success'])
-    ->where('id', '[A-Z0-9]+')->name('checkout.success');
+    Route::post('/thanh-toan/bat-dau',      [CheckoutController::class, 'start'])->name('checkout.start');
+    Route::post('/mua-ngay',                [CheckoutController::class, 'buyNow'])->name('checkout.buyNow');
+    Route::get('/thanh-toan',               [CheckoutController::class, 'index'])->name('checkout.index');
+    Route::post('/thanh-toan',              [CheckoutController::class, 'place'])->name('checkout.place');
+    // Trang QR riêng cho đơn chuyển khoản — webhook SePay flip status=paid sẽ tự
+    // redirect sang checkout.success ở lần poll kế tiếp.
+    Route::get('/thanh-toan/quet-qr/{id}',  [CheckoutController::class, 'pay'])
+        ->where('id', '[A-Z0-9]+')->name('checkout.pay');
+    // JSON status endpoint cho polling từ JS (không reload toàn page).
+    Route::get('/thanh-toan/quet-qr/{id}/trang-thai', [CheckoutController::class, 'payStatus'])
+        ->where('id', '[A-Z0-9]+')->name('checkout.payStatus');
+    Route::get('/dat-hang-thanh-cong/{id}', [CheckoutController::class, 'success'])
+        ->where('id', '[A-Z0-9]+')->name('checkout.success');
+});
 
 Route::middleware('auth')->group(function () {
     Route::get('/tai-khoan',           [UserController::class, 'profile'])->name('user.profile');
@@ -159,6 +172,15 @@ Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(fun
     Route::post('tin-nhan/{threadId}/ghim',     [AdminChat::class, 'togglePin'])->name('chat.pin');
     Route::post('tin-nhan/{threadId}/tat-tb',   [AdminChat::class, 'toggleMute'])->name('chat.mute');
     Route::delete('tin-nhan/{threadId}',        [AdminChat::class, 'destroy'])->name('chat.destroy');
+
+    // Skin (theme) — tùy biến giao diện
+    Route::get('giao-dien',                 [AdminSkin::class, 'index'])->name('skin.index');
+    Route::post('giao-dien',                [AdminSkin::class, 'update'])->name('skin.update');
+
+    // Plugin — tùy biến chức năng
+    Route::get('plugin',                    [AdminPlugin::class, 'index'])->name('plugins.index');
+    Route::post('plugin/{key}/bat-tat',     [AdminPlugin::class, 'toggle'])
+        ->where('key', '[a-z0-9_]+')->name('plugins.toggle');
 
     // Notifications
     Route::get('thong-bao',                 [AdminNotification::class, 'index'])->name('notifications.index');

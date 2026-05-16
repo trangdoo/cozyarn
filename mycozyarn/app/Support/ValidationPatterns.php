@@ -59,12 +59,16 @@ final class ValidationPatterns
     public const ORDER_ID = '/^CZ[A-F0-9]{8}$/';
 
     /**
-     * Cart key: cat::slug::variant::size — chấp nhận chữ thường, số, gạch, hai dấu hai chấm.
+     * Cart key: format `category|slug|variant|size` (xem App\Support\Cart::makeKey).
+     * Variant label có thể là tiếng Việt có dấu ("Pastel hồng"), size có thể rỗng.
+     * Vì vậy regex phải cho phép Unicode letter, `|` làm separator, và segment rỗng
+     * (vd: "len-soi|len-cotton-pastel|Pastel hồng|" — size để trống).
      */
-    public const CART_KEY = '/^[a-z0-9][a-z0-9\-:_\.]{0,200}$/i';
+    public const CART_KEY = "/^[\\p{L}\\p{N}][\\p{L}\\p{N}\\s\\-\\._:|]{0,254}$/u";
 
     /**
-     * Item key trong order — tương tự cart key, có thể null/none cho variant.
+     * Item key trong order — cùng định dạng cart key (forwarded từ Cart::makeKey
+     * khi order được tạo).
      */
-    public const ITEM_KEY = '/^[a-z0-9][a-z0-9\-:_\.]{0,200}$/i';
+    public const ITEM_KEY = "/^[\\p{L}\\p{N}][\\p{L}\\p{N}\\s\\-\\._:|]{0,254}$/u";
 }

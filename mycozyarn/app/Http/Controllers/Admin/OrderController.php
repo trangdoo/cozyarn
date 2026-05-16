@@ -2,12 +2,13 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Models\Order;
+use App\Support\AdminInbox;
 use App\Support\OrderTimeline;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Response;
-use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Admin orders — full management.
@@ -21,6 +22,9 @@ class OrderController extends Controller
 
     public function index(Request $request)
     {
+        // Admin đã vào trang đơn → coi như đã đọc các notification order_new/order_paid.
+        AdminInbox::markTypeRead(['order_new', 'order_paid']);
+
         $all = $this->allOrders();
         usort($all, fn($a, $b) => strcmp($b['created_at'] ?? '', $a['created_at'] ?? ''));
 
@@ -64,9 +68,16 @@ class OrderController extends Controller
 
     public function show(string $id)
     {
+        // Admin mở chi tiết đơn → đảm bảo notification của đơn này đã được đánh dấu đọc
+        // (markTypeRead trong index() đã quét chung nhưng nếu admin vào trực tiếp link
+        // từ email/inbox sidebar thì index() chưa chạy).
+        AdminInbox::markTypeRead(['order_new', 'order_paid']);
+
         $orders = session('orders', []);
         $order  = $orders[$id] ?? null;
         abort_unless($order !== null, 404);
+
+        $order = $this->syncPaymentFromDb($order, $orders, $id);
 
         $timeline = OrderTimeline::compute($order);
 
@@ -341,6 +352,27 @@ class OrderController extends Controller
     private function allOrders(): array
     {
         return array_values(session('orders', []));
+    }
+
+    /**
+     * Đồng bộ payment_status từ DB (nguồn sự thật cho webhook SePay) sang session
+     * để admin nhìn đúng trạng thái thanh toán ngay khi webhook vừa cập nhật.
+     */
+    private function syncPaymentFromDb(array $order, array $orders, string $id): array
+    {
+        if (!ctype_digit($id)) {
+            return $order;
+        }
+        $dbOrder = Order::find((int) $id);
+        if (!$dbOrder) {
+            return $order;
+        }
+        if (($order['payment_status'] ?? null) !== $dbOrder->payment_status) {
+            $order['payment_status'] = $dbOrder->payment_status;
+            $orders[$id] = $order;
+            session(['orders' => $orders]);
+        }
+        return $order;
     }
 
     private function stageOf(array $order): string

@@ -115,8 +115,8 @@
             <div class="ft-bottom__links">
                 <a href="/chinh-sach/mua-hang">Điều khoản</a>
                 <a href="/chinh-sach/bao-mat">Bảo mật</a>
-                <a href="#">Cookies</a>
-                <a href="#">Sitemap</a>
+                <a href="/chinh-sach/faq">FAQ</a>
+                <a href="/shop">Sitemap</a>
             </div>
             <div class="ft-pay" aria-label="Phương thức thanh toán">
                 <span class="ft-pay__label">Thanh toán:</span>

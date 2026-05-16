@@ -15,8 +15,13 @@
             </div>
             <h1 class="success-hero__title">Đặt hàng thành công!</h1>
             <p class="success-hero__sub">
-                Cảm ơn bạn đã mua hàng tại CozyYarn 💕<br>
-                Shop sẽ liên hệ xác nhận đơn trong vòng 24 giờ.
+                @if(($order['payment'] ?? '') === 'bank')
+                    Đã nhận được thanh toán. Cảm ơn bạn đã mua hàng tại CozyYarn 💕<br>
+                    Shop sẽ liên hệ xác nhận đơn trong vòng 24 giờ.
+                @else
+                    Cảm ơn bạn đã mua hàng tại CozyYarn 💕<br>
+                    Shop sẽ liên hệ xác nhận đơn trong vòng 24 giờ.
+                @endif
             </p>
             <div class="success-hero__id">
                 Mã đơn hàng: <strong>{{ $order['id'] }}</strong>
@@ -25,7 +30,7 @@
             <div class="checkout-steps">
                 <span class="checkout-step is-done">1. Giỏ hàng</span>
                 <span class="checkout-step is-done">2. Thông tin &amp; thanh toán</span>
-                <span class="checkout-step is-active">3. Hoàn tất</span>
+                <span class="checkout-step is-done">3. Hoàn tất</span>
             </div>
         </div>
 
@@ -57,7 +62,20 @@
                         <span>Trạng thái</span>
                         <strong><span class="status-pill">Chờ xác nhận</span></strong>
                     </li>
+                    @if(($order['payment'] ?? '') !== 'cod')
+                        <li>
+                            <span>Thanh toán</span>
+                            <strong>
+                                @if(($order['payment_status'] ?? 'pending') === 'paid')
+                                    <span class="status-pill" style="background:#dcfce7;color:#166534">Đã thanh toán</span>
+                                @else
+                                    <span class="status-pill" style="background:#fef3c7;color:#92400e">Chờ thanh toán</span>
+                                @endif
+                            </strong>
+                        </li>
+                    @endif
                 </ul>
+
             </section>
 
             <section class="co-card">
@@ -100,6 +118,16 @@
                         <strong>{{ number_format($order['shippingFee'], 0, ',', '.') }} ₫</strong>
                     @endif
                 </div>
+                @if(!empty($order['discount']) && $order['discount'] > 0)
+                    <div class="co-summary__row">
+                        <span>Giảm giá
+                            @if(!empty($order['discount_code']))
+                                <code style="background:#fde4ee;padding:1px 6px;border-radius:6px;font-size:11px">{{ $order['discount_code'] }}</code>
+                            @endif
+                        </span>
+                        <strong style="color:#b91c1c">−{{ number_format($order['discount'], 0, ',', '.') }} ₫</strong>
+                    </div>
+                @endif
                 <div class="co-summary__total">
                     <span>Tổng cộng</span>
                     <strong>{{ number_format($order['total'], 0, ',', '.') }} ₫</strong>

@@ -16,11 +16,19 @@ class AuthController extends Controller
 {
     public function __construct(private readonly UserService $users) {}
 
-    public function showLoginForm()
+    public function showLoginForm(Request $request)
     {
         if (Auth::check()) {
             return redirect('/');
         }
+
+        // Cho phép link "Đăng nhập" từ trang sản phẩm (?intended=...) đặt URL trở về
+        // sau khi đăng nhập thành công — chỉ chấp nhận URL nội bộ để tránh open redirect.
+        $intended = (string) $request->query('intended', '');
+        if ($intended !== '' && str_starts_with($intended, '/')) {
+            $request->session()->put('url.intended', url($intended));
+        }
+
         return view('user.auth.login');
     }
 

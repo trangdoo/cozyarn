@@ -128,7 +128,7 @@
             <div class="auth-social">
                 <span class="auth-social__label">Or Login With</span>
                 <div class="auth-social__btns">
-                    <a href="#" class="auth-social__btn" aria-label="Login with Google">
+                    <a href="#" class="auth-social__btn" aria-label="Login with Google" aria-disabled="true" title="Đang phát triển — vui lòng dùng email" onclick="event.preventDefault();alert('Đăng nhập Google đang được phát triển. Vui lòng dùng email.');">
                         <svg viewBox="0 0 48 48">
                             <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
                             <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
@@ -138,7 +138,7 @@
                         </svg>
                         Google
                     </a>
-                    <a href="#" class="auth-social__btn" aria-label="Login with Facebook">
+                    <a href="#" class="auth-social__btn" aria-label="Login with Facebook" aria-disabled="true" title="Đang phát triển — vui lòng dùng email" onclick="event.preventDefault();alert('Đăng nhập Facebook đang được phát triển. Vui lòng dùng email.');">
                         <svg viewBox="0 0 24 24">
                             <path fill="#1877F2" d="M24 12a12 12 0 1 0-13.875 11.854V15.47H7.078V12h3.047V9.356c0-3.007 1.792-4.668 4.533-4.668 1.312 0 2.686.234 2.686.234v2.953h-1.513c-1.49 0-1.955.925-1.955 1.875V12h3.328l-.532 3.47h-2.796v8.384A12.003 12.003 0 0 0 24 12z"/>
                         </svg>

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Admin;
 
+use App\Support\AdminInbox;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Str;
@@ -22,6 +23,9 @@ class ChatController extends Controller
 {
     public function index()
     {
+        // Admin đã mở inbox chat → clear notification "tin nhắn mới" cho mọi thread.
+        AdminInbox::markTypeRead('message');
+
         $threads = $this->sortedThreads();
         return view('admin.chat.index', [
             'threads'        => $threads,
@@ -34,6 +38,9 @@ class ChatController extends Controller
         $all = session('chats', []);
         $thread = $all[$threadId] ?? null;
         abort_unless($thread, 404);
+
+        // Admin đã mở thread cụ thể → mark notification của thread đó là đã đọc.
+        AdminInbox::markRead('CHAT-' . $threadId);
 
         // Đánh dấu đã xem: admin vừa mở thread → mark all user messages as read by shop
         $all[$threadId]['last_read_by_shop'] = now()->toDateTimeString();

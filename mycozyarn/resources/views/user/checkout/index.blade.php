@@ -103,7 +103,7 @@
                             </span>
                             <span class="co-pay__body">
                                 <strong>Chuyển khoản ngân hàng</strong>
-                                <small>Vietcombank · CozyYarn · Shop sẽ liên hệ gửi QR sau khi đặt.</small>
+                                <small>Sau khi đặt hàng sẽ hiện QR VietQR · Hệ thống tự xác nhận khi tiền về.</small>
                             </span>
                         </label>
                         <label class="co-pay">
@@ -118,6 +118,13 @@
                             </span>
                         </label>
                     </div>
+
+                    <label class="co-field" style="margin-top:14px">
+                        <span class="co-label">Mã giảm giá (nếu có)</span>
+                        <input type="text" name="discount_code" value="{{ old('discount_code') }}" placeholder="VD: COZY10" maxlength="40" style="text-transform:uppercase">
+                    </label>
+
+                    {!! \App\Plugin\Hook::render('checkout.payment_extra') !!}
                 </section>
             </div>
 

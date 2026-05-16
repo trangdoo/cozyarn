@@ -23,7 +23,7 @@
                             <small>Welcome to</small>
                             <h2>Handmade Yarn Products</h2>
                             <p>Discover beautiful handmade yarn and accessories for your every project.</p>
-                            <a class="btn-main" href="#">SHOP NOW</a>
+                            <a class="btn-main" href="{{ route('shop.index') }}">SHOP NOW</a>
                         </div>
                     </article>
 
@@ -35,7 +35,7 @@
                             <small>Cozy collection</small>
                             <h2>Soft Pastel Fibers</h2>
                             <p>Pick premium yarn bundles to bring comfort and warmth to your creations.</p>
-                            <a class="btn-main" href="#">SHOP NOW</a>
+                            <a class="btn-main" href="{{ route('shop.index') }}">SHOP NOW</a>
                         </div>
                     </article>
 
@@ -47,7 +47,7 @@
                             <small>Maker essentials</small>
                             <h2>Needles & Cute Tools</h2>
                             <p>Everything you need from starter kits to pro tools in one sweet place.</p>
-                            <a class="btn-main" href="#">SHOP NOW</a>
+                            <a class="btn-main" href="{{ route('shop.index') }}">SHOP NOW</a>
                         </div>
                     </article>
 
@@ -59,7 +59,7 @@
                             <small>Try new patterns</small>
                             <h2>Creative Starter Packs</h2>
                             <p>Follow ready templates and create handmade gifts for friends and family.</p>
-                            <a class="btn-main" href="#">SHOP NOW</a>
+                            <a class="btn-main" href="{{ route('shop.index') }}">SHOP NOW</a>
                         </div>
                     </article>
                 </div>
@@ -215,9 +215,10 @@
                     </div>
                     <div class="au-cta">
                         <p class="au-cta__text">Nhận thông báo sản phẩm mới &amp; ưu đãi độc quyền</p>
-                        <div class="au-cta__form">
-                            <input type="email" class="au-cta__input" placeholder="Email của bạn...">
-                            <button class="au-cta__btn">Đăng ký</button>
+                        <div class="au-cta__form" data-newsletter>
+                            <input type="email" class="au-cta__input" placeholder="Email của bạn..." data-newsletter-input>
+                            <button type="button" class="au-cta__btn" data-newsletter-btn
+                                onclick="(function(b){var i=b.parentNode.querySelector('[data-newsletter-input]');var v=(i.value||'').trim();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)){i.focus();i.style.outline='2px solid #d63384';return;}i.disabled=true;b.disabled=true;b.textContent='Đã đăng ký ✓';})(this)">Đăng ký</button>
                         </div>
                     </div>
                 </div>
@@ -610,13 +611,13 @@
             <div class="contact__inner">
 
                 <div class="contact__grid">
-                    <form class="contact-form">
+                    <form class="contact-form" data-contact-form onsubmit="event.preventDefault();this.dataset.sent='1';this.querySelector('.cf-submit').textContent='Đã gửi ✓ Cảm ơn bạn';this.querySelectorAll('input,textarea,button').forEach(el=>el.disabled=true);">
                         <div class="cf-row">
-                            <input type="email" placeholder="Email" class="cf-input">
-                            <input type="tel" placeholder="Số điện thoại" class="cf-input">
+                            <input type="email" placeholder="Email" class="cf-input" required>
+                            <input type="tel" placeholder="Số điện thoại" class="cf-input" required>
                         </div>
-                        <input type="text" placeholder="Họ và tên" class="cf-input cf-input--full">
-                        <textarea placeholder="Nội dung tin nhắn của bạn..." class="cf-textarea"></textarea>
+                        <input type="text" placeholder="Họ và tên" class="cf-input cf-input--full" required>
+                        <textarea placeholder="Nội dung tin nhắn của bạn..." class="cf-textarea" required></textarea>
                         <button type="submit" class="cf-submit">Gửi tin nhắn</button>
                     </form>
 
@@ -774,10 +775,10 @@
                 <div class="ft-bottom">
                     <p class="ft-copy">© 2025 <strong>CozyYarn</strong>. Được làm bằng <span class="ft-heart">♥</span> bởi cộng đồng handmade Việt Nam.</p>
                     <div class="ft-bottom__links">
-                        <a href="#">Điều khoản</a>
-                        <a href="#">Bảo mật</a>
-                        <a href="#">Cookies</a>
-                        <a href="#">Sitemap</a>
+                        <a href="/chinh-sach/mua-hang">Điều khoản</a>
+                        <a href="/chinh-sach/bao-mat">Bảo mật</a>
+                        <a href="/chinh-sach/faq">FAQ</a>
+                        <a href="/shop">Sitemap</a>
                     </div>
                     <div class="ft-pay" aria-label="Phương thức thanh toán">
                         <span class="ft-pay__label">Thanh toán:</span>
