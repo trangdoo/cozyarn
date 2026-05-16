@@ -2,123 +2,127 @@
 
 namespace App\Support;
 
+use App\Models\Broadcast;
+use App\Models\BroadcastDelivery;
+use App\Models\User;
+
 /**
- * BroadcastQueue — lưu các notification admin gửi broadcast vào JSON file
- * để mọi user đều có thể đọc (vượt qua giới hạn session-per-user trong demo).
+ * BroadcastQueue — DB-backed.
+ * Public API giữ nguyên cho Admin\NotificationController & Support\Notifications.
  *
- * Mỗi record:
- *  id, type (promo), title, content, icon, link, meta,
- *  recipients: 'all' | 'role:user' | 'role:admin' | ['email@...', 'email2...'],
- *  send_at, created_at, sender_id, delivered_to (tracking array to prevent double-push)
- *
- * Khi migrate DB: đổi thành bảng `broadcasts` + `broadcast_deliveries`.
+ * Item shape (back-compat):
+ *   id (int as string), type, title, content, icon, link, meta, recipients,
+ *   send_at, created_at, sender_id, delivered_to (array of user_id)
  */
 class BroadcastQueue
 {
     public static function all(): array
     {
-        $path = self::path();
-        if (!file_exists($path)) return [];
-        $data = json_decode((string) file_get_contents($path), true);
-        return \is_array($data) ? $data : [];
+        return Broadcast::orderByDesc('created_at')->get()
+            ->map(fn ($b) => self::toArray($b))
+            ->all();
     }
 
     public static function find(string $id): ?array
     {
-        foreach (self::all() as $b) {
-            if (($b['id'] ?? null) === $id) return $b;
-        }
-        return null;
+        $row = Broadcast::find((int) $id);
+        return $row ? self::toArray($row) : null;
     }
 
+    /**
+     * Tạo mới hoặc cập nhật broadcast.
+     * $broadcast['id'] (nếu có) = PK; thiếu thì tạo mới.
+     */
     public static function save(array $broadcast): void
     {
-        $all = self::all();
-        $found = false;
-        foreach ($all as $i => $b) {
-            if (($b['id'] ?? null) === $broadcast['id']) {
-                $all[$i] = $broadcast;
-                $found = true;
-                break;
-            }
+        $id = $broadcast['id'] ?? null;
+
+        $payload = [
+            'sender_id'  => $broadcast['sender_id'] ?? null,
+            'type'       => $broadcast['type']      ?? 'promo',
+            'title'      => $broadcast['title']     ?? 'Thông báo',
+            'content'    => $broadcast['content']   ?? null,
+            'link'       => $broadcast['link']      ?? null,
+            'icon'       => $broadcast['icon']      ?? null,
+            'recipients' => self::recipientsToStorage($broadcast['recipients'] ?? 'all'),
+            'meta'       => $broadcast['meta']      ?? null,
+            'send_at'    => $broadcast['send_at']   ?? null,
+        ];
+
+        if ($id && ($row = Broadcast::find((int) $id))) {
+            $row->fill($payload)->save();
+        } else {
+            Broadcast::create($payload);
         }
-        if (!$found) $all[] = $broadcast;
-        self::write($all);
     }
 
     public static function delete(string $id): void
     {
-        $all = array_values(array_filter(self::all(), fn($b) => ($b['id'] ?? null) !== $id));
-        self::write($all);
+        Broadcast::where('id', (int) $id)->delete();
     }
 
     public static function deleteMany(array $ids): int
     {
-        $all = self::all();
-        $before = \count($all);
-        $all = array_values(array_filter($all, fn($b) => !\in_array($b['id'] ?? '', $ids, true)));
-        self::write($all);
-        return $before - \count($all);
+        $ints = array_map('intval', $ids);
+        return Broadcast::whereIn('id', $ints)->delete();
     }
 
     public static function markDelivered(string $id, int $userId): void
     {
-        $all = self::all();
-        foreach ($all as $i => $b) {
-            if (($b['id'] ?? null) === $id) {
-                $to = $b['delivered_to'] ?? [];
-                if (!\in_array($userId, $to, true)) $to[] = $userId;
-                $all[$i]['delivered_to'] = $to;
-                self::write($all);
-                return;
-            }
-        }
+        BroadcastDelivery::firstOrCreate(
+            ['broadcast_id' => (int) $id, 'user_id' => $userId],
+            ['delivered_at' => now()]
+        );
     }
 
     /**
-     * Các broadcast mà user này đủ điều kiện nhận (chưa nhận + đã đến giờ + khớp recipients).
+     * Các broadcast user đủ điều kiện nhận (đã đến giờ + chưa nhận + khớp recipients).
      */
     public static function deliverableFor(int $userId, string $userEmail, string $userRole): array
     {
-        $now = now()->toDateTimeString();
-        $matches = [];
-        foreach (self::all() as $b) {
-            if (($b['send_at'] ?? $now) > $now) continue; // chưa đến giờ
-            if (\in_array($userId, $b['delivered_to'] ?? [], true)) continue; // đã gửi rồi
+        $delivered = BroadcastDelivery::where('user_id', $userId)->pluck('broadcast_id')->all();
 
-            if (!self::matchesRecipient($b['recipients'] ?? 'all', $userId, $userEmail, $userRole)) continue;
-            $matches[] = $b;
+        $candidates = Broadcast::query()
+            ->where(function ($q) {
+                $q->whereNull('send_at')->orWhere('send_at', '<=', now());
+            })
+            ->when(!empty($delivered), fn ($q) => $q->whereNotIn('id', $delivered))
+            ->orderBy('created_at')
+            ->get();
+
+        $out = [];
+        foreach ($candidates as $b) {
+            if (!$b->matchesUser($userId, $userEmail, $userRole)) continue;
+            $out[] = self::toArray($b);
         }
-        return $matches;
+        return $out;
     }
 
-    private static function matchesRecipient(mixed $recipients, int $userId, string $userEmail, string $userRole): bool
+    /* ═══════════════════════════ private helpers ═══════════════════════════ */
+
+    private static function toArray(Broadcast $b): array
     {
-        if ($recipients === 'all') return true;
-        if ($recipients === 'role:user')  return $userRole === 'user';
-        if ($recipients === 'role:admin') return $userRole === 'admin';
-        if (\is_array($recipients)) {
-            // Mảng email hoặc user_id
-            foreach ($recipients as $r) {
-                if ($r === $userEmail) return true;
-                if ((int) $r === $userId) return true;
-            }
-        }
-        return false;
+        return [
+            'id'           => (string) $b->id,
+            'sender_id'    => $b->sender_id,
+            'type'         => $b->type,
+            'title'        => $b->title,
+            'content'      => $b->content ?? '',
+            'link'         => $b->link,
+            'icon'         => $b->icon,
+            'recipients'   => $b->recipientsParsed(),
+            'meta'         => $b->meta ?? [],
+            'send_at'      => $b->send_at?->toDateTimeString(),
+            'created_at'   => $b->created_at?->toDateTimeString(),
+            'updated_at'   => $b->updated_at?->toDateTimeString(),
+            'delivered_to' => BroadcastDelivery::where('broadcast_id', $b->id)->pluck('user_id')->all(),
+        ];
     }
 
-    private static function path(): string
+    private static function recipientsToStorage(mixed $r): string
     {
-        $dir = storage_path('app/demo');
-        if (!is_dir($dir)) @mkdir($dir, 0755, true);
-        return $dir . DIRECTORY_SEPARATOR . 'broadcasts.json';
-    }
-
-    private static function write(array $data): void
-    {
-        file_put_contents(
-            self::path(),
-            json_encode(array_values($data), JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)
-        );
+        if (is_string($r)) return $r;
+        if (is_array($r))  return json_encode(array_values($r), JSON_UNESCAPED_UNICODE);
+        return 'all';
     }
 }

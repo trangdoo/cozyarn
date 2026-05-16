@@ -3,55 +3,55 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Support\AdminInbox;
+use App\Support\ChatThreads;
+use App\Support\Notifications;
+use App\Models\ChatThread;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Str;
 
 /**
- * Admin chat — 9 tính năng:
- * 1. Sidebar danh sách hội thoại
- * 2. Xem nội dung (quasi-realtime: user reload or auto-poll trong view)
- * 3. Gửi / nhận tin nhắn
- * 4. Đính kèm ảnh
- * 5. Tìm kiếm (client-side trong sidebar)
- * 6. Ghim hội thoại
- * 7. Xoá hội thoại
- * 8. Tắt thông báo (mute flag)
- * 9. Trạng thái đã xem (read receipts)
+ * Admin chat — DB-backed.
+ * URL identifier dùng PK numeric (vì nhiều user có cùng thread_key như 'shop').
+ *
+ * Tính năng:
+ *  1. Sidebar danh sách hội thoại (pinned trước, sort updated_at)
+ *  2. Xem nội dung + tin nhắn
+ *  3. Gửi reply (DB persist)
+ *  4. Đính kèm ảnh
+ *  5. Tìm kiếm (client-side trong sidebar)
+ *  6. Ghim / bỏ ghim
+ *  7. Xoá hội thoại
+ *  8. Mute / unmute
+ *  9. Read receipts (last_read_by_shop)
  */
 class ChatController extends Controller
 {
     public function index()
     {
-        // Admin đã mở inbox chat → clear notification "tin nhắn mới" cho mọi thread.
         AdminInbox::markTypeRead('message');
 
-        $threads = $this->sortedThreads();
         return view('admin.chat.index', [
-            'threads'        => $threads,
+            'threads'        => ChatThreads::listAllForAdmin(),
             'activeThreadId' => null,
         ]);
     }
 
     public function show(string $threadId)
     {
-        $all = session('chats', []);
-        $thread = $all[$threadId] ?? null;
+        $pk     = $this->pk($threadId);
+        $thread = ChatThreads::getById($pk);
         abort_unless($thread, 404);
 
-        // Admin đã mở thread cụ thể → mark notification của thread đó là đã đọc.
-        AdminInbox::markRead('CHAT-' . $threadId);
-
-        // Đánh dấu đã xem: admin vừa mở thread → mark all user messages as read by shop
-        $all[$threadId]['last_read_by_shop'] = now()->toDateTimeString();
-        session(['chats' => $all]);
-        $thread = $all[$threadId];
+        AdminInbox::markRead('CHAT-' . $pk);
+        ChatThreads::markReadByShopByPk($pk);
+        $thread = ChatThreads::getById($pk);
 
         return view('admin.chat.show', [
             'thread'         => $thread,
-            'threadId'       => $threadId,
-            'threads'        => $this->sortedThreads(),
-            'activeThreadId' => $threadId,
+            'threadId'       => (string) $pk,
+            'threads'        => ChatThreads::listAllForAdmin(),
+            'activeThreadId' => (string) $pk,
         ]);
     }
 
@@ -68,95 +68,65 @@ class ChatController extends Controller
             return back()->withErrors(['content' => 'Nhập tin nhắn hoặc chọn ảnh để gửi.']);
         }
 
-        $all = session('chats', []);
-        abort_unless(isset($all[$threadId]), 404);
+        $pk = $this->pk($threadId);
 
-        // Upload ảnh (nếu có)
-        $imagePath = null;
-        if ($hasImage) {
-            $file = $request->file('image');
-            $ext  = strtolower($file->getClientOriginalExtension()) ?: 'jpg';
-            $name = Str::uuid()->toString() . '.' . $ext;
-            $dest = public_path('uploads/chat');
-            if (!is_dir($dest)) @mkdir($dest, 0755, true);
-            $file->move($dest, $name);
-            $imagePath = '/uploads/chat/' . $name;
-        }
+        $imagePath = $hasImage ? $this->uploadImage($request->file('image')) : null;
 
-        $now = now()->toDateTimeString();
-        $all[$threadId]['messages'][] = [
-            'id'         => (string) Str::uuid(),
-            'sender'     => 'shop',
-            'content'    => $hasText ? $data['content'] : '',
-            'image'      => $imagePath,
-            'created_at' => $now,
-        ];
-        $all[$threadId]['updated_at']        = $now;
-        $all[$threadId]['last_read_by_shop'] = $now;
-        $all[$threadId]['last_preview']      = $hasText
-            ? mb_substr($data['content'], 0, 80)
-            : '📷 Shop đã gửi ảnh';
+        $result = ChatThreads::appendMessageByShop(
+            $pk,
+            $hasText ? $data['content'] : null,
+            $imagePath,
+        );
 
-        session(['chats' => $all]);
-        return redirect()->route('admin.chat.show', ['threadId' => $threadId]);
+        // Push notification cho user về shop reply
+        $userId = $result['thread']['user_id'];
+        Notifications::push([
+            'id'      => 'CHAT-REPLY-' . $pk . '-' . now()->timestamp,
+            'user_id' => $userId,
+            'type'    => 'system',
+            'title'   => 'Shop vừa trả lời tin nhắn',
+            'content' => $hasText ? mb_substr($data['content'], 0, 140) : '📷 Shop đã gửi một ảnh',
+            'link'    => route('user.chat.thread', ['threadId' => $result['thread']['thread_key']]),
+            'icon'    => 'info',
+            'meta'    => ['thread_pk' => $pk],
+        ]);
+
+        return redirect()->route('admin.chat.show', ['threadId' => $pk]);
     }
 
     public function togglePin(string $threadId)
     {
-        $all = session('chats', []);
-        abort_unless(isset($all[$threadId]), 404);
-
-        $all[$threadId]['pinned'] = !($all[$threadId]['pinned'] ?? false);
-        session(['chats' => $all]);
-
-        $msg = $all[$threadId]['pinned'] ? 'Đã ghim hội thoại.' : 'Đã bỏ ghim.';
-        return back()->with('cart_flash', $msg);
+        $pinned = ChatThreads::togglePinByPk($this->pk($threadId));
+        return back()->with('cart_flash', $pinned ? 'Đã ghim hội thoại.' : 'Đã bỏ ghim.');
     }
 
     public function toggleMute(string $threadId)
     {
-        $all = session('chats', []);
-        abort_unless(isset($all[$threadId]), 404);
-
-        $all[$threadId]['muted'] = !($all[$threadId]['muted'] ?? false);
-        session(['chats' => $all]);
-
-        $msg = $all[$threadId]['muted'] ? 'Đã tắt thông báo.' : 'Đã bật thông báo.';
-        return back()->with('cart_flash', $msg);
+        $muted = ChatThreads::toggleMuteByPk($this->pk($threadId));
+        return back()->with('cart_flash', $muted ? 'Đã tắt thông báo.' : 'Đã bật thông báo.');
     }
 
     public function destroy(string $threadId)
     {
-        $all = session('chats', []);
-        unset($all[$threadId]);
-        session(['chats' => $all]);
-
+        ChatThreads::destroyByPk($this->pk($threadId));
         return redirect()->route('admin.chat.index')->with('cart_flash', 'Đã xoá hội thoại.');
     }
 
-    /**
-     * Sort: pinned trước → updated_at mới nhất.
-     * Thêm field computed: unread (số tin user gửi sau last_read_by_shop).
-     */
-    private function sortedThreads(): array
+    /* ═══════════════════════════ helpers ═══════════════════════════ */
+
+    private function pk(string $threadId): int
     {
-        $threads = array_values(session('chats', []));
+        abort_unless(is_numeric($threadId), 404);
+        return (int) $threadId;
+    }
 
-        foreach ($threads as &$t) {
-            $lastRead = $t['last_read_by_shop'] ?? '1970-01-01 00:00:00';
-            $t['unread_count'] = \count(array_filter($t['messages'] ?? [], fn($m) =>
-                ($m['sender'] ?? '') === 'user' && ($m['created_at'] ?? '') > $lastRead
-            ));
-        }
-        unset($t);
-
-        usort($threads, function ($a, $b) {
-            $pinA = $a['pinned'] ?? false;
-            $pinB = $b['pinned'] ?? false;
-            if ($pinA !== $pinB) return $pinB <=> $pinA;
-            return strcmp($b['updated_at'] ?? '', $a['updated_at'] ?? '');
-        });
-
-        return $threads;
+    private function uploadImage($file): string
+    {
+        $ext  = strtolower($file->getClientOriginalExtension()) ?: 'jpg';
+        $name = Str::uuid()->toString() . '.' . $ext;
+        $dest = public_path('uploads/chat');
+        if (!is_dir($dest)) @mkdir($dest, 0755, true);
+        $file->move($dest, $name);
+        return '/uploads/chat/' . $name;
     }
 }

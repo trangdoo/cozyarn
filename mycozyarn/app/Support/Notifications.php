@@ -2,14 +2,20 @@
 
 namespace App\Support;
 
+use App\Models\Notification;
 use App\Support\OrderTimeline;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
- * Notifications — session-based cho demo.
- * Lưu ở session('notifications') keyed by id.
- * Mỗi notification: id, user_id, type (order|promo), title, content, link, icon, is_read, created_at, meta.
+ * Notifications — DB-backed.
+ * Public API (forUser/unreadCount/markRead/markAllRead/push/syncForUser) trả về array shape
+ * giống session-based cũ: id, user_id, type, title, content, link, icon, is_read, created_at, meta.
+ * Views/Controllers cũ không cần đổi shape.
+ *
+ * notif_key (deterministic): 'ORDER-{orderId}-{stage}', 'PROMO-SEED-{i}', 'BROADCAST-{id}'
+ *   → unique(user_id, notif_key) chống trùng. Không có notif_key thì lưu null, id = DB PK.
  */
 class Notifications
 {
@@ -42,65 +48,39 @@ class Notifications
     ];
 
     /**
-     * Đồng bộ notifications: seed promo + tạo notification cho mỗi stage đã pass của mỗi đơn.
-     * Gọi trước khi hiển thị danh sách (ở controller index).
+     * Sync: seed promo (1 lần/user) + tạo notification cho mỗi stage đơn đã pass +
+     * pull từ BroadcastQueue.
      */
     public static function syncForUser(?int $userId = null): void
     {
         $userId ??= Auth::id();
         if (!$userId) return;
 
-        $all = session('notifications', []);
-        self::seedPromos($all, $userId);
-        self::syncOrderTimelines($all, $userId);
-        self::syncBroadcastQueue($all, $userId);
-
-        session(['notifications' => $all]);
+        self::seedPromos($userId);
+        self::syncOrderTimelines($userId);
+        self::syncBroadcastQueue($userId);
     }
 
     /**
-     * Đồng bộ từ BroadcastQueue — admin gửi cho ai → push vào session của user đó khi họ load.
-     */
-    private static function syncBroadcastQueue(array &$all, int $userId): void
-    {
-        $user = Auth::user();
-        if (!$user) return;
-
-        $broadcasts = \App\Support\BroadcastQueue::deliverableFor($userId, $user->email ?? '', $user->role ?? 'user');
-        foreach ($broadcasts as $b) {
-            $notifId = "BROADCAST-{$b['id']}";
-            if (isset($all[$notifId])) continue;
-
-            $all[$notifId] = [
-                'id'         => $notifId,
-                'user_id'    => $userId,
-                'type'       => $b['type']    ?? 'promo',
-                'title'      => $b['title']   ?? 'Thông báo',
-                'content'    => $b['content'] ?? '',
-                'link'       => $b['link']    ?? null,
-                'icon'       => $b['icon']    ?? 'info',
-                'is_read'    => false,
-                'created_at' => $b['send_at'] ?? now()->toDateTimeString(),
-                'meta'       => $b['meta']    ?? [],
-            ];
-
-            \App\Support\BroadcastQueue::markDelivered($b['id'], $userId);
-        }
-    }
-
-    /**
-     * Push một notification mới (dùng khi user làm action như huỷ đơn, yêu cầu trả hàng).
+     * Tạo notification mới (dùng cho action user-triggered: cancel order, return request...).
+     * Nếu có notif_key trùng (user_id, notif_key) thì skip.
      */
     public static function push(array $attrs): void
     {
         $userId = $attrs['user_id'] ?? Auth::id();
         if (!$userId) return;
 
-        $all = session('notifications', []);
-        $id  = $attrs['id'] ?? ('NOTIF' . strtoupper(Str::random(8)));
+        $notifKey = $attrs['id'] ?? $attrs['notif_key'] ?? null;
+        // Nếu 'id' truyền vào trông không phải số → dùng làm notif_key (back-compat string ids cũ).
+        if ($notifKey !== null && !is_numeric($notifKey)) {
+            $exists = Notification::where('user_id', $userId)->where('notif_key', $notifKey)->exists();
+            if ($exists) return;
+        } else {
+            $notifKey = null;
+        }
 
-        $all[$id] = [
-            'id'         => $id,
+        Notification::create([
+            'notif_key'  => $notifKey,
             'user_id'    => $userId,
             'type'       => $attrs['type']    ?? 'order',
             'title'      => $attrs['title']   ?? 'Thông báo',
@@ -108,49 +88,67 @@ class Notifications
             'link'       => $attrs['link']    ?? null,
             'icon'       => $attrs['icon']    ?? 'info',
             'is_read'    => $attrs['is_read'] ?? false,
-            'created_at' => $attrs['created_at'] ?? now()->toDateTimeString(),
+            'created_at' => $attrs['created_at'] ?? now(),
             'meta'       => $attrs['meta']    ?? [],
-        ];
-
-        session(['notifications' => $all]);
+        ]);
     }
 
     /**
-     * Lấy notifications của user (sắp xếp mới → cũ).
+     * Lấy notifications của user, mới → cũ. Trả về array keyed by id (PK hoặc notif_key).
      */
     public static function forUser(?int $userId = null): array
     {
         $userId ??= Auth::id();
         if (!$userId) return [];
 
-        $all  = session('notifications', []);
-        $mine = array_filter($all, fn($n) => ($n['user_id'] ?? null) === $userId);
-        uasort($mine, fn($a, $b) => strcmp($b['created_at'] ?? '', $a['created_at'] ?? ''));
-        return $mine;
+        $rows = Notification::where('user_id', $userId)
+            ->orderByDesc('created_at')
+            ->get();
+
+        $out = [];
+        foreach ($rows as $row) {
+            $key = $row->notif_key ?: (string) $row->id;
+            $out[$key] = self::toArray($row);
+        }
+        return $out;
     }
 
-    /** Đếm số notification chưa đọc — dùng cho badge trên header. */
+    /**
+     * Tìm 1 notification của user theo id (PK) hoặc notif_key. Trả null nếu không thấy/không phải của user.
+     */
+    public static function find(string $idOrKey, ?int $userId = null): ?array
+    {
+        $userId ??= Auth::id();
+        if (!$userId) return null;
+
+        $q = Notification::where('user_id', $userId);
+        $q = is_numeric($idOrKey)
+            ? $q->where('id', (int) $idOrKey)
+            : $q->where('notif_key', $idOrKey);
+
+        $row = $q->first();
+        return $row ? self::toArray($row) : null;
+    }
+
     public static function unreadCount(?int $userId = null): int
     {
         $userId ??= Auth::id();
         if (!$userId) return 0;
 
-        $all = session('notifications', []);
-        $c   = 0;
-        foreach ($all as $n) {
-            if (($n['user_id'] ?? null) === $userId && empty($n['is_read'])) $c++;
-        }
-        return $c;
+        return Notification::where('user_id', $userId)->where('is_read', false)->count();
     }
 
-    public static function markRead(string $id): void
+    public static function markRead(string $idOrKey): void
     {
-        $all = session('notifications', []);
-        if (!isset($all[$id])) return;
-        if (($all[$id]['user_id'] ?? null) !== Auth::id()) return;
+        $userId = Auth::id();
+        if (!$userId) return;
 
-        $all[$id]['is_read'] = true;
-        session(['notifications' => $all]);
+        $q = Notification::where('user_id', $userId);
+        $q = is_numeric($idOrKey)
+            ? $q->where('id', (int) $idOrKey)
+            : $q->where('notif_key', $idOrKey);
+
+        $q->update(['is_read' => true, 'read_at' => now()]);
     }
 
     public static function markAllRead(?int $userId = null): void
@@ -158,27 +156,40 @@ class Notifications
         $userId ??= Auth::id();
         if (!$userId) return;
 
-        $all = session('notifications', []);
-        foreach ($all as $id => $n) {
-            if (($n['user_id'] ?? null) === $userId) {
-                $all[$id]['is_read'] = true;
-            }
-        }
-        session(['notifications' => $all]);
+        Notification::where('user_id', $userId)
+            ->where('is_read', false)
+            ->update(['is_read' => true, 'read_at' => now()]);
     }
 
     /* ═══════════════════════════ private helpers ═══════════════════════════ */
 
-    /**
-     * Seed một số promo mặc định cho mỗi user (chỉ seed 1 lần — check bằng flag session).
-     */
-    private static function seedPromos(array &$all, int $userId): void
+    private static function toArray($row): array
     {
-        $flagKey = "notif_promo_seeded_user_{$userId}";
-        if (session($flagKey)) return;
+        $key = $row->notif_key ?: (string) $row->id;
+        return [
+            'id'         => $key,                                          // back-compat: view dùng $n['id']
+            'pk'         => $row->id,                                      // DB PK riêng nếu cần
+            'notif_key'  => $row->notif_key,
+            'user_id'    => $row->user_id,
+            'type'       => $row->type,
+            'title'      => $row->title,
+            'content'    => $row->content ?? '',
+            'link'       => $row->link,
+            'icon'       => $row->icon,
+            'is_read'    => (bool) $row->is_read,
+            'created_at' => $row->created_at?->toDateTimeString(),
+            'meta'       => $row->meta ?? [],
+        ];
+    }
 
+    /**
+     * Seed 3 promo mặc định cho mỗi user — chỉ 1 lần nhờ unique(user_id, notif_key).
+     */
+    private static function seedPromos(int $userId): void
+    {
         $promos = [
             [
+                'key'      => 'PROMO-SEED-discount',
                 'title'    => '🎉 Giảm 20% toàn bộ len sợi!',
                 'content'  => 'Nhập mã COZY20 khi thanh toán — áp dụng cho đơn từ 300k. HSD 30/04.',
                 'link'     => '/shop/len-soi',
@@ -200,6 +211,7 @@ class Notifications
                 ],
             ],
             [
+                'key'      => 'PROMO-SEED-freeship',
                 'title'    => '🚚 Freeship đơn từ 500k',
                 'content'  => 'Mua thêm bất kỳ sản phẩm nào để đạt mốc miễn phí vận chuyển toàn quốc.',
                 'link'     => '/shop',
@@ -221,6 +233,7 @@ class Notifications
                 ],
             ],
             [
+                'key'      => 'PROMO-SEED-starterkit',
                 'title'    => '🧶 Bộ Starter Kit mới ra mắt',
                 'content'  => 'Kit gấu bông, khăn quàng, túi xách — đầy đủ dụng cụ cho người mới.',
                 'link'     => '/shop/starter-kit',
@@ -244,36 +257,35 @@ class Notifications
         ];
 
         foreach ($promos as $i => $p) {
-            $id = "PROMO" . strtoupper(Str::random(6));
-            $all[$id] = [
-                'id'         => $id,
-                'user_id'    => $userId,
-                'type'       => 'promo',
-                'title'      => $p['title'],
-                'content'    => $p['content'],
-                'link'       => $p['link'],
-                'icon'       => $p['icon'],
-                'is_read'    => false,
-                'created_at' => now()->subMinutes(15 + $i * 10)->toDateTimeString(),
-                'meta'       => [
-                    'cta'         => $p['cta'],
-                    'banner'      => $p['banner'],
-                    'code'        => $p['code'],
-                    'valid_until' => $p['valid_until'],
-                    'details'     => $p['details'],
-                    'highlights'  => $p['highlights'],
-                ],
-            ];
+            // INSERT IGNORE bằng firstOrCreate trên (user_id, notif_key) — unique constraint protects.
+            Notification::firstOrCreate(
+                ['user_id' => $userId, 'notif_key' => $p['key']],
+                [
+                    'type'       => 'promo',
+                    'title'      => $p['title'],
+                    'content'    => $p['content'],
+                    'link'       => $p['link'],
+                    'icon'       => $p['icon'],
+                    'is_read'    => false,
+                    'created_at' => now()->subMinutes(15 + $i * 10),
+                    'meta'       => [
+                        'cta'         => $p['cta'],
+                        'banner'      => $p['banner'],
+                        'code'        => $p['code'],
+                        'valid_until' => $p['valid_until'],
+                        'details'     => $p['details'],
+                        'highlights'  => $p['highlights'],
+                    ],
+                ]
+            );
         }
-
-        session([$flagKey => true]);
     }
 
     /**
-     * Với mỗi đơn của user, sinh notification cho mỗi stage timeline đã đạt.
-     * ID deterministic: "ORDER-{orderId}-{stage}" → không tạo trùng.
+     * Sinh notification cho mỗi stage timeline đã đạt trên mỗi đơn của user.
+     * Orders vẫn ở session (per architecture doc) → đọc từ session.
      */
-    private static function syncOrderTimelines(array &$all, int $userId): void
+    private static function syncOrderTimelines(int $userId): void
     {
         $orders = session('orders', []);
         foreach ($orders as $order) {
@@ -282,32 +294,58 @@ class Notifications
             if (!$orderId) continue;
 
             $timeline = OrderTimeline::compute($order);
-            $reachedSteps = [];
             foreach ($timeline['steps'] as $step) {
-                if (($step['is_done'] ?? false) || ($step['is_current'] ?? false)) {
-                    $reachedSteps[] = $step['key'];
-                }
-            }
-
-            foreach ($reachedSteps as $stage) {
+                if (!($step['is_done'] ?? false) && !($step['is_current'] ?? false)) continue;
+                $stage = $step['key'];
                 if (!isset(self::ORDER_STAGE_TEMPLATES[$stage])) continue;
 
-                $notifId = "ORDER-{$orderId}-{$stage}";
-                if (isset($all[$notifId])) continue; // đã tạo rồi
-
                 $tpl = self::ORDER_STAGE_TEMPLATES[$stage];
-                $all[$notifId] = [
-                    'id'         => $notifId,
-                    'user_id'    => $userId,
-                    'type'       => 'order',
-                    'title'      => str_replace(':id', $orderId, $tpl['title']),
-                    'content'    => $tpl['body'],
-                    'link'       => "/don-hang/{$orderId}",
-                    'icon'       => $tpl['icon'],
+                Notification::firstOrCreate(
+                    ['user_id' => $userId, 'notif_key' => "ORDER-{$orderId}-{$stage}"],
+                    [
+                        'type'       => 'order',
+                        'title'      => str_replace(':id', $orderId, $tpl['title']),
+                        'content'    => $tpl['body'],
+                        'link'       => "/don-hang/{$orderId}",
+                        'icon'       => $tpl['icon'],
+                        'is_read'    => false,
+                        'created_at' => $order['created_at'] ?? now(),
+                        'meta'       => ['order_id' => $orderId, 'stage' => $stage],
+                    ]
+                );
+            }
+        }
+    }
+
+    /**
+     * Pull broadcasts deliverable cho user này từ DB → notifications cá nhân.
+     */
+    private static function syncBroadcastQueue(int $userId): void
+    {
+        $user = Auth::user();
+        if (!$user) return;
+
+        $broadcasts = BroadcastQueue::deliverableFor($userId, $user->email ?? '', $user->role ?? 'user');
+        foreach ($broadcasts as $b) {
+            $notifKey = "BROADCAST-{$b['id']}";
+
+            $created = Notification::firstOrCreate(
+                ['user_id' => $userId, 'notif_key' => $notifKey],
+                [
+                    'type'       => $b['type']    ?? 'promo',
+                    'title'      => $b['title']   ?? 'Thông báo',
+                    'content'    => $b['content'] ?? '',
+                    'link'       => $b['link']    ?? null,
+                    'icon'       => $b['icon']    ?? 'info',
                     'is_read'    => false,
-                    'created_at' => $order['created_at'] ?? now()->toDateTimeString(),
-                    'meta'       => ['order_id' => $orderId, 'stage' => $stage],
-                ];
+                    'created_at' => $b['send_at'] ?? now(),
+                    'meta'       => $b['meta']    ?? [],
+                ]
+            );
+
+            // Đánh dấu đã deliver — không push lại lần sau.
+            if ($created->wasRecentlyCreated) {
+                BroadcastQueue::markDelivered((string) $b['id'], $userId);
             }
         }
     }

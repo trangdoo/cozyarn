@@ -3,115 +3,83 @@
 namespace App\Http\Controllers;
 
 use App\Support\AdminInbox;
+use App\Support\ChatThreads;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
 
 /**
- * Chat với shop — session-based, không real-time.
- * Mỗi user có 1 số "thread" (cuộc hội thoại):
- *  - thread 'shop'                       → chat chung với shop
- *  - thread 'product-{categorySlug}-{productSlug}' → chat về 1 sản phẩm cụ thể
+ * Chat user — DB-backed via ChatThreads service.
+ * Mỗi user có:
+ *   - thread 'shop' (lazy-created khi mở lần đầu)
+ *   - thread 'product-{categorySlug}-{productSlug}' (tạo từ trang product)
  *
- * Dữ liệu lưu ở session('chats'): [ thread_id => [ ...meta, 'messages' => [...] ] ],
- * có key 'user_id' để mỗi user chỉ thấy thread của mình.
+ * User URLs dùng thread_key (scope theo Auth::id(), nên 1 user chỉ có 1 'shop').
+ * Khi user gửi → push admin_notifications (key 'CHAT-{pk}'). Admin reply qua admin chat.
  */
 class ChatController extends Controller
 {
-    private const SHOP_THREAD = 'shop';
-    private const AUTO_REPLY  = 'Cảm ơn bạn đã liên hệ CozyYarn! Shop đã nhận tin nhắn và sẽ phản hồi chi tiết trong ít phút. ♡';
-
     public function inbox()
     {
+        $this->ensureShopThread();
         return view('user.chat.inbox', [
-            'threads'        => $this->listThreads(),
+            'threads'        => ChatThreads::listForUser(Auth::id()),
             'activeThreadId' => null,
         ]);
     }
 
     public function thread(string $threadId)
     {
-        $all    = session('chats', []);
-        $thread = $all[$threadId] ?? null;
-
-        // Thread 'shop' được tạo lazy khi user truy cập lần đầu
-        if (!$thread && $threadId === self::SHOP_THREAD) {
-            $thread = $this->makeThread(self::SHOP_THREAD, [
-                'title'    => 'CozyYarn Shop',
-                'subtitle' => 'Gửi tin nhắn cho shop — bất cứ câu hỏi nào.',
-                'type'     => 'shop',
-            ]);
-            $all[self::SHOP_THREAD] = $thread;
-            session(['chats' => $all]);
+        if ($threadId === ChatThreads::SHOP_THREAD) {
+            $this->ensureShopThread();
         }
 
+        $thread = ChatThreads::getForUser($threadId, Auth::id());
         abort_unless($thread, 404);
-        abort_unless(($thread['user_id'] ?? null) === Auth::id(), 403);
 
-        // Mark read — user đã xem toàn bộ tin nhắn từ shop tính đến thời điểm này
-        $all[$threadId]['last_read_by_user'] = now()->toDateTimeString();
-        session(['chats' => $all]);
-        $thread = $all[$threadId];
+        ChatThreads::markReadByUser($threadId, Auth::id());
+        $thread = ChatThreads::getForUser($threadId, Auth::id());
 
         return view('user.chat.thread', [
             'thread'         => $thread,
             'threadId'       => $threadId,
-            'threads'        => $this->listThreads(),
+            'threads'        => ChatThreads::listForUser(Auth::id()),
             'activeThreadId' => $threadId,
         ]);
-    }
-
-    /**
-     * Danh sách thread của user (đảm bảo có thread 'shop' + sắp xếp mới → cũ).
-     */
-    private function listThreads(): array
-    {
-        $threads = $this->userThreads();
-
-        if (!isset($threads[self::SHOP_THREAD])) {
-            $threads[self::SHOP_THREAD] = $this->makeThread(self::SHOP_THREAD, [
-                'title'    => 'CozyYarn Shop',
-                'subtitle' => 'Gửi tin nhắn cho shop — bất cứ câu hỏi nào.',
-                'type'     => 'shop',
-            ]);
-        }
-
-        uasort($threads, fn($a, $b) => strcmp($b['updated_at'] ?? '', $a['updated_at'] ?? ''));
-        return $threads;
     }
 
     public function send(Request $request)
     {
         $data = $request->validate([
-            'thread_id' => 'required|string|max:120',
+            'thread_id' => 'required|string|max:160',
             'content'   => 'nullable|string|max:2000',
-            'image'     => 'nullable|image|mimes:jpg,jpeg,png,webp,gif|max:5120', // 5MB
-            // optional: nếu tạo thread mới từ trang product
+            'image'     => 'nullable|image|mimes:jpg,jpeg,png,webp,gif|max:5120',
             'product'   => 'nullable|array',
-            'product.slug'       => 'nullable|string|max:120',
-            'product.category'   => 'nullable|string|max:120',
-            'product.name'       => 'nullable|string|max:200',
-            'product.image'      => 'nullable|string|max:300',
-            'product.price'      => 'nullable|numeric',
+            'product.slug'     => 'nullable|string|max:120',
+            'product.category' => 'nullable|string|max:120',
+            'product.name'     => 'nullable|string|max:200',
+            'product.image'    => 'nullable|string|max:300',
+            'product.price'    => 'nullable|numeric',
         ]);
 
-        // Phải có ít nhất nội dung text hoặc ảnh
         $hasContent = !empty(trim((string) ($data['content'] ?? '')));
         $hasImage   = $request->hasFile('image');
         if (!$hasContent && !$hasImage) {
             return back()->withErrors(['content' => 'Vui lòng nhập tin nhắn hoặc chọn ảnh để gửi.']);
         }
 
-        $threadId = $data['thread_id'];
-        $all      = session('chats', []);
-        $thread   = $all[$threadId] ?? null;
+        $threadKey = $data['thread_id'];
+        $userId    = Auth::id();
+        $thread    = ChatThreads::getForUser($threadKey, $userId, withMessages: false);
 
-        // Tạo thread mới nếu chưa có (cho product-*)
+        // Tạo thread mới nếu chưa có
         if (!$thread) {
-            if (str_starts_with($threadId, 'product-') && !empty($data['product'])) {
+            if ($threadKey === ChatThreads::SHOP_THREAD) {
+                $thread = $this->ensureShopThread();
+            } elseif (str_starts_with($threadKey, 'product-') && !empty($data['product'])) {
                 $p = $data['product'];
-                $thread = $this->makeThread($threadId, [
+                $thread = ChatThreads::findOrCreateForUser($threadKey, $userId, [
                     'title'    => $p['name'] ?? 'Sản phẩm',
                     'subtitle' => 'Trao đổi về sản phẩm này',
                     'type'     => 'product',
@@ -123,99 +91,57 @@ class ChatController extends Controller
                         'price'    => isset($p['price']) ? (float) $p['price'] : 0,
                     ],
                 ]);
-            } elseif ($threadId === self::SHOP_THREAD) {
-                $thread = $this->makeThread(self::SHOP_THREAD, [
-                    'title'    => 'CozyYarn Shop',
-                    'subtitle' => 'Gửi tin nhắn cho shop — bất cứ câu hỏi nào.',
-                    'type'     => 'shop',
-                ]);
             } else {
                 abort(404);
             }
         }
 
-        abort_unless(($thread['user_id'] ?? null) === Auth::id(), 403);
+        $imagePath = $hasImage ? $this->uploadImage($request->file('image')) : null;
 
-        // Upload ảnh (nếu có) — lưu vào public/uploads/chat/
-        $imagePath = null;
-        if ($hasImage) {
-            $file = $request->file('image');
-            $ext  = strtolower($file->getClientOriginalExtension()) ?: 'jpg';
-            $name = Str::uuid()->toString() . '.' . $ext;
-            $dest = public_path('uploads/chat');
-            if (!is_dir($dest)) {
-                @mkdir($dest, 0755, true);
-            }
-            $file->move($dest, $name);
-            $imagePath = '/uploads/chat/' . $name;
-        }
+        ChatThreads::appendMessageByUser(
+            $threadKey,
+            $userId,
+            $hasContent ? $data['content'] : null,
+            $imagePath,
+        );
 
-        $now = now()->toDateTimeString();
-        $thread['messages'][] = [
-            'id'         => (string) Str::uuid(),
-            'sender'     => 'user',
-            'content'    => $hasContent ? $data['content'] : '',
-            'image'      => $imagePath,
-            'created_at' => $now,
-        ];
-        // Auto-reply từ shop (demo — không có admin thật)
-        $thread['messages'][] = [
-            'id'         => (string) Str::uuid(),
-            'sender'     => 'shop',
-            'content'    => self::AUTO_REPLY,
-            'image'      => null,
-            'created_at' => now()->addSecond()->toDateTimeString(),
-        ];
-        $thread['updated_at']   = $now;
-        $thread['last_preview'] = $hasContent
-            ? mb_substr($data['content'], 0, 80)
-            : '📷 Đã gửi một ảnh';
-
-        $all[$threadId] = $thread;
-        session(['chats' => $all]);
-
-        // Push admin inbox: tin nhắn mới từ user. Dùng id deterministic theo thread →
-        // tin nhắn liên tục cùng thread chỉ tạo 1 notification chưa-đọc (gộp lại).
+        // Push admin inbox: deterministic key per thread PK → tin liên tục cùng thread chỉ tạo 1 notification.
         $userName = Auth::user()->name ?? 'Khách';
+        $threadPk = $thread['pk'];
         AdminInbox::push([
-            'id'      => 'CHAT-' . $threadId,
+            'id'      => 'CHAT-' . $threadPk,
             'type'    => 'message',
             'title'   => "Tin nhắn mới từ {$userName}",
             'content' => $hasContent
                 ? mb_substr($data['content'], 0, 140)
                 : '📷 Đã gửi một ảnh',
-            'link'    => route('admin.chat.show', ['threadId' => $threadId]),
-            'meta'    => ['thread_id' => $threadId, 'user_id' => Auth::id()],
+            'link'    => route('admin.chat.show', ['threadId' => $threadPk]),
+            'meta'    => ['thread_pk' => $threadPk, 'thread_key' => $threadKey, 'user_id' => $userId],
         ]);
 
-        return redirect()->route('user.chat.thread', ['threadId' => $threadId]);
+        return redirect()->route('user.chat.thread', ['threadId' => $threadKey]);
     }
 
-    /**
-     * Build 1 thread mới (chưa có tin nhắn).
-     */
-    private function makeThread(string $id, array $meta): array
+    /* ═══════════════════════════ helpers ═══════════════════════════ */
+
+    private function ensureShopThread(): array
     {
-        return [
-            'id'           => $id,
-            'user_id'      => Auth::id(),
-            'title'        => $meta['title']    ?? 'Hội thoại',
-            'subtitle'     => $meta['subtitle'] ?? '',
-            'type'         => $meta['type']     ?? 'shop',
-            'product'      => $meta['product']  ?? null,
-            'messages'     => [],
-            'created_at'   => now()->toDateTimeString(),
-            'updated_at'   => now()->toDateTimeString(),
-            'last_preview' => '',
-        ];
+        return ChatThreads::findOrCreateForUser(ChatThreads::SHOP_THREAD, Auth::id(), [
+            'title'    => 'CozyYarn Shop',
+            'subtitle' => 'Gửi tin nhắn cho shop — bất cứ câu hỏi nào.',
+            'type'     => 'shop',
+        ]);
     }
 
-    /**
-     * Danh sách thread thuộc về user đang đăng nhập.
-     */
-    private function userThreads(): array
+    private function uploadImage($file): string
     {
-        $all = session('chats', []);
-        return array_filter($all, fn($t) => ($t['user_id'] ?? null) === Auth::id());
+        $ext  = strtolower($file->getClientOriginalExtension()) ?: 'jpg';
+        $name = Str::uuid()->toString() . '.' . $ext;
+        $dest = public_path('uploads/chat');
+        if (!is_dir($dest)) {
+            @mkdir($dest, 0755, true);
+        }
+        $file->move($dest, $name);
+        return '/uploads/chat/' . $name;
     }
 }

@@ -95,7 +95,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('/thong-bao',                [NotificationController::class, 'index'])->name('user.notifications.index');
     Route::get('/thong-bao/{id}',           [NotificationController::class, 'open'])
-        ->where('id', '[A-Z0-9\-]+')->name('user.notifications.open');
+        ->where('id', '[a-zA-Z0-9\-_]+')->name('user.notifications.open');
     Route::post('/thong-bao/doc-tat-ca',    [NotificationController::class, 'markAllRead'])->name('user.notifications.readAll');
 });
 

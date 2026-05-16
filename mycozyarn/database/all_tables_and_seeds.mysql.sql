@@ -106,16 +106,102 @@ CREATE TABLE reviews (
 	CONSTRAINT FK_reviews_users FOREIGN KEY (user_id) REFERENCES users(id),
 	CONSTRAINT FK_reviews_products FOREIGN KEY (product_id) REFERENCES products(id)
 );
--- 010_create_messages.sql
+-- 010_create_chat_threads.sql
+CREATE TABLE chat_threads (
+	id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+	user_id INT NOT NULL,
+	thread_key VARCHAR(160) NOT NULL,                 -- 'shop' hoặc 'product-{cat}-{slug}'
+	title VARCHAR(200) NOT NULL,
+	subtitle VARCHAR(300),
+	type VARCHAR(30) DEFAULT 'shop',                  -- shop | product
+	product_meta JSON,                                -- {slug, category, name, image, price}
+	pinned TINYINT(1) DEFAULT 0,
+	muted TINYINT(1) DEFAULT 0,
+	last_read_by_user DATETIME NULL,
+	last_read_by_shop DATETIME NULL,
+	last_preview VARCHAR(300),
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+	updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	UNIQUE KEY uq_chat_user_threadkey (user_id, thread_key),
+	INDEX idx_chat_threads_user_updated (user_id, updated_at),
+	CONSTRAINT FK_chat_threads_users FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+-- 011_create_messages.sql
 CREATE TABLE messages (
 	id INT AUTO_INCREMENT PRIMARY KEY,
+	thread_id BIGINT UNSIGNED,                         -- khớp với chat_threads.id (BIGINT do Laravel)
 	sender_id INT NOT NULL,
+	sender_type VARCHAR(10) DEFAULT 'user',            -- user | shop
 	receiver_id INT,
-	content TEXT NOT NULL,
+	content TEXT,
+	image_url VARCHAR(300),
 	is_read TINYINT(1) DEFAULT 0,
 	created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-	CONSTRAINT FK_messages_sender FOREIGN KEY (sender_id) REFERENCES users(id),
+	updated_at DATETIME NULL,
+	CONSTRAINT FK_messages_thread   FOREIGN KEY (thread_id)   REFERENCES chat_threads(id) ON DELETE CASCADE,
+	CONSTRAINT FK_messages_sender   FOREIGN KEY (sender_id)   REFERENCES users(id),
 	CONSTRAINT FK_messages_receiver FOREIGN KEY (receiver_id) REFERENCES users(id)
+);
+-- 012_create_notifications.sql
+CREATE TABLE notifications (
+	id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+	notif_key VARCHAR(120),                           -- deterministic, vd 'ORDER-12-shipping'
+	user_id INT NOT NULL,
+	type VARCHAR(30) DEFAULT 'order',                 -- order | promo | system
+	title VARCHAR(200) NOT NULL,
+	content TEXT,
+	link VARCHAR(300),
+	icon VARCHAR(50),
+	is_read TINYINT(1) DEFAULT 0,
+	read_at DATETIME NULL,
+	meta JSON,
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+	INDEX idx_notif_user_read (user_id, is_read),
+	INDEX idx_notif_user_created (user_id, created_at),
+	UNIQUE KEY uq_notif_user_key (user_id, notif_key),
+	CONSTRAINT FK_notifications_users FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
+-- 013_create_admin_notifications.sql
+CREATE TABLE admin_notifications (
+	id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+	notif_key VARCHAR(120) UNIQUE,                    -- 'CHAT-{threadId}', 'ORDER-NEW-{id}'...
+	type VARCHAR(30) DEFAULT 'system',                -- order_new | order_paid | message | system
+	title VARCHAR(200) NOT NULL,
+	content TEXT,
+	link VARCHAR(300),
+	is_read TINYINT(1) DEFAULT 0,
+	read_at DATETIME NULL,
+	meta JSON,
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+	INDEX idx_admin_notif_type_read (type, is_read),
+	INDEX idx_admin_notif_created (created_at)
+);
+-- 014_create_broadcasts.sql
+CREATE TABLE broadcasts (
+	id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+	sender_id INT,
+	type VARCHAR(30) DEFAULT 'promo',                 -- promo | system
+	title VARCHAR(200) NOT NULL,
+	content TEXT,
+	link VARCHAR(300),
+	icon VARCHAR(50),
+	recipients VARCHAR(500) DEFAULT 'all',            -- 'all' | 'role:user' | 'role:admin' | JSON list
+	meta JSON,
+	send_at DATETIME NULL,                            -- null = gửi ngay
+	created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+	updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+	INDEX idx_broadcasts_send_at (send_at),
+	CONSTRAINT FK_broadcasts_sender FOREIGN KEY (sender_id) REFERENCES users(id) ON DELETE SET NULL
+);
+-- 015_create_broadcast_deliveries.sql
+CREATE TABLE broadcast_deliveries (
+	id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+	broadcast_id BIGINT UNSIGNED NOT NULL,
+	user_id INT NOT NULL,
+	delivered_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+	UNIQUE KEY uq_broadcast_user (broadcast_id, user_id),
+	CONSTRAINT FK_bd_broadcast FOREIGN KEY (broadcast_id) REFERENCES broadcasts(id) ON DELETE CASCADE,
+	CONSTRAINT FK_bd_user      FOREIGN KEY (user_id)      REFERENCES users(id)      ON DELETE CASCADE
 );
 
 -- ===== SEEDS =====

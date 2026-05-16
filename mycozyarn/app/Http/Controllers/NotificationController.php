@@ -37,10 +37,8 @@ class NotificationController extends Controller
 
     public function open(string $id)
     {
-        $all   = session('notifications', []);
-        $notif = $all[$id] ?? null;
+        $notif = Notifications::find($id, Auth::id());
         abort_unless($notif, 404);
-        abort_unless(($notif['user_id'] ?? null) === Auth::id(), 403);
 
         Notifications::markRead($id);
 

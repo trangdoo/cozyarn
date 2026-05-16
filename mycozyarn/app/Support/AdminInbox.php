@@ -2,123 +2,135 @@
 
 namespace App\Support;
 
-use Illuminate\Support\Facades\Cache;
+use App\Models\AdminNotification;
 use Illuminate\Support\Str;
 
 /**
- * Admin inbox — kho thông báo dùng chung cho tất cả admin (đơn mới, tin nhắn mới,
- * thanh toán xác nhận...). Vì các phần khác của hệ thống đang là session-based per-user
- * (không share giữa sessions), ta cần một kho riêng accessible cross-session.
+ * Admin inbox — DB-backed. Dùng chung cho mọi admin (cross-session).
  *
- * Dùng Cache file driver → lưu ở storage/framework/cache/, đọc được từ mọi process.
+ * Public API giữ nguyên: push/all/recent/unreadCount/markRead/markTypeRead/markAllRead.
+ * Item shape (back-compat với code/view cũ):
+ *   id (string — notif_key hoặc PK), type, title, content, link, is_read, created_at, meta
  *
- * Mỗi item:
- *   - id          string
- *   - type        order_new | order_paid | message | system
- *   - title       string
- *   - content     string
- *   - link        ?string  (admin URL)
- *   - is_read     bool
- *   - created_at  Y-m-d H:i:s
- *   - meta        array
+ * notif_key deterministic: 'CHAT-{threadId}', 'ORDER-NEW-{id}', 'ORDER-PAID-{id}'.
+ * Item không có notif_key vẫn được, id = "AN{random}".
  */
 class AdminInbox
 {
-    private const KEY  = 'admin_inbox_v1';
-    private const MAX  = 500;
-    private const STORE = 'file';
+    private const MAX = 500;
 
-    /** Push 1 thông báo mới. Trả về id. */
     public static function push(array $attrs): string
     {
-        $list = self::all();
-        $id   = $attrs['id'] ?? ('AN' . strtoupper(Str::random(10)));
+        $key = $attrs['id'] ?? $attrs['notif_key'] ?? ('AN' . strtoupper(Str::random(10)));
 
-        $list[$id] = [
-            'id'         => $id,
+        // Nếu đã tồn tại (deterministic key) → reset thành unread + cập nhật content.
+        $existing = AdminNotification::where('notif_key', $key)->first();
+        if ($existing) {
+            $existing->fill([
+                'type'    => $attrs['type']    ?? $existing->type,
+                'title'   => $attrs['title']   ?? $existing->title,
+                'content' => $attrs['content'] ?? $existing->content,
+                'link'    => $attrs['link']    ?? $existing->link,
+                'meta'    => $attrs['meta']    ?? $existing->meta,
+                'is_read' => false,
+                'read_at' => null,
+            ])->save();
+            self::trim();
+            return $key;
+        }
+
+        AdminNotification::create([
+            'notif_key'  => $key,
             'type'       => $attrs['type']    ?? 'system',
             'title'      => (string) ($attrs['title']   ?? ''),
             'content'    => (string) ($attrs['content'] ?? ''),
             'link'       => $attrs['link']    ?? null,
             'is_read'    => false,
-            'created_at' => $attrs['created_at'] ?? now()->toDateTimeString(),
+            'created_at' => $attrs['created_at'] ?? now(),
             'meta'       => $attrs['meta']    ?? [],
-        ];
+        ]);
 
-        self::trimAndSave($list);
-        return $id;
+        self::trim();
+        return $key;
     }
 
+    /** Trả về array keyed by notif_key/id (back-compat). */
     public static function all(): array
     {
-        return Cache::store(self::STORE)->get(self::KEY, []);
+        $rows = AdminNotification::orderByDesc('created_at')->get();
+        $out  = [];
+        foreach ($rows as $row) {
+            $key = $row->notif_key ?: (string) $row->id;
+            $out[$key] = self::toArray($row);
+        }
+        return $out;
     }
 
-    /** Lấy mới nhất trước, tối đa $limit item. */
     public static function recent(int $limit = 20): array
     {
-        $all = self::all();
-        uasort($all, fn ($a, $b) => strcmp($b['created_at'] ?? '', $a['created_at'] ?? ''));
-        return array_slice($all, 0, $limit, true);
+        $rows = AdminNotification::orderByDesc('created_at')->limit($limit)->get();
+        $out  = [];
+        foreach ($rows as $row) {
+            $key = $row->notif_key ?: (string) $row->id;
+            $out[$key] = self::toArray($row);
+        }
+        return $out;
     }
 
-    /** Đếm unread. Nếu truyền $type thì lọc theo type. */
     public static function unreadCount(?string $type = null): int
     {
-        $all = self::all();
-        $c   = 0;
-        foreach ($all as $n) {
-            if (!empty($n['is_read'])) continue;
-            if ($type !== null && ($n['type'] ?? '') !== $type) continue;
-            $c++;
-        }
-        return $c;
+        $q = AdminNotification::where('is_read', false);
+        if ($type !== null) $q->where('type', $type);
+        return $q->count();
     }
 
     public static function markRead(string $id): void
     {
-        $list = self::all();
-        if (!isset($list[$id])) return;
-        $list[$id]['is_read'] = true;
-        self::save($list);
+        $q = AdminNotification::query();
+        $q = is_numeric($id) ? $q->where('id', (int) $id) : $q->where('notif_key', $id);
+        $q->update(['is_read' => true, 'read_at' => now()]);
     }
 
-    /**
-     * Đánh dấu read theo type — admin mở trang Đơn hàng → mark all `order_new` +
-     * `order_paid` đã đọc; admin mở Tin nhắn → mark `message` đã đọc.
-     */
     public static function markTypeRead(string|array $types): void
     {
         $types = (array) $types;
-        $list  = self::all();
-        foreach ($list as $id => $n) {
-            if (in_array($n['type'] ?? '', $types, true)) {
-                $list[$id]['is_read'] = true;
-            }
-        }
-        self::save($list);
+        AdminNotification::whereIn('type', $types)
+            ->where('is_read', false)
+            ->update(['is_read' => true, 'read_at' => now()]);
     }
 
     public static function markAllRead(): void
     {
-        $list = self::all();
-        foreach ($list as $id => $n) {
-            $list[$id]['is_read'] = true;
-        }
-        self::save($list);
+        AdminNotification::where('is_read', false)
+            ->update(['is_read' => true, 'read_at' => now()]);
     }
 
-    private static function trimAndSave(array $list): void
+    /* ═══════════════════════════ private helpers ═══════════════════════════ */
+
+    private static function toArray($row): array
     {
-        if (count($list) > self::MAX) {
-            uasort($list, fn ($a, $b) => strcmp($b['created_at'] ?? '', $a['created_at'] ?? ''));
-            $list = array_slice($list, 0, self::MAX, true);
-        }
-        self::save($list);
+        return [
+            'id'         => $row->notif_key ?: (string) $row->id,
+            'pk'         => $row->id,
+            'notif_key'  => $row->notif_key,
+            'type'       => $row->type,
+            'title'      => $row->title,
+            'content'    => $row->content ?? '',
+            'link'       => $row->link,
+            'is_read'    => (bool) $row->is_read,
+            'created_at' => $row->created_at?->toDateTimeString(),
+            'meta'       => $row->meta ?? [],
+        ];
     }
 
-    private static function save(array $list): void
+    /** Giữ tối đa MAX bản ghi — xoá cũ nhất khi vượt. */
+    private static function trim(): void
     {
-        Cache::store(self::STORE)->forever(self::KEY, $list);
+        $count = AdminNotification::count();
+        if ($count <= self::MAX) return;
+
+        $deleteCount = $count - self::MAX;
+        $ids = AdminNotification::orderBy('created_at')->limit($deleteCount)->pluck('id');
+        AdminNotification::whereIn('id', $ids)->delete();
     }
 }

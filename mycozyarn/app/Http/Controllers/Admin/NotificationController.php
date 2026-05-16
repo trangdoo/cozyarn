@@ -152,21 +152,16 @@ class NotificationController extends Controller
             'specific'    => array_values(array_map('intval', $data['recipient_users'] ?? [])),
         };
 
-        $id = $existingId ?? 'BC-' . strtoupper(Str::random(8));
-
-        BroadcastQueue::save([
-            'id'           => $id,
-            'type'         => $data['type'],
-            'title'        => $data['title'],
-            'content'      => $data['content'],
-            'link'         => $data['link'] ?? null,
-            'icon'         => $data['icon'],
-            'recipients'   => $recipients,
-            'send_at'      => $data['send_at'] ?? now()->toDateTimeString(),
-            'created_at'   => $existingCreated ?? now()->toDateTimeString(),
-            'sender_id'    => auth()->id(),
-            'delivered_to' => [],
-            'meta'         => [
+        $payload = [
+            'type'       => $data['type'],
+            'title'      => $data['title'],
+            'content'    => $data['content'],
+            'link'       => $data['link'] ?? null,
+            'icon'       => $data['icon'],
+            'recipients' => $recipients,
+            'send_at'    => $data['send_at'] ?? now()->toDateTimeString(),
+            'sender_id'  => auth()->id(),
+            'meta'       => [
                 'code'        => $data['code'] ?? null,
                 'valid_until' => $data['valid_until'] ?? null,
                 'details'     => [$data['content']],
@@ -174,6 +169,11 @@ class NotificationController extends Controller
                 'cta'         => 'Xem ngay',
                 'banner'      => null,
             ],
-        ]);
+        ];
+        if ($existingId !== null) {
+            $payload['id'] = $existingId;
+        }
+
+        BroadcastQueue::save($payload);
     }
 }
