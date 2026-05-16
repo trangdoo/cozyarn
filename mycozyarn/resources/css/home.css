@@ -5806,6 +5806,71 @@ a {
 .co-pay__body strong { color: #7f4e63; font-size: 14px; }
 .co-pay__body small  { color: #a8748c; font-size: 12px; }
 
+/* Bank QR preview panel (hiện khi chọn "bank") */
+.co-bank-panel {
+    margin-top: -2px;
+    padding: 16px 18px;
+    background: linear-gradient(180deg, #f5f9ff 0%, #ffffff 100%);
+    border: 1.5px solid #c7d4e8;
+    border-radius: 14px;
+    animation: co-bank-fade 0.25s ease;
+}
+.co-bank-panel[hidden] { display: none; }
+.co-bank-panel--empty { background: #fff9fc; border-color: #f0d5e2; }
+.co-bank-panel__grid {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 16px;
+    align-items: start;
+}
+.co-bank-panel__qr {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+.co-bank-panel__qr img {
+    width: 160px; height: 160px;
+    border-radius: 10px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    object-fit: contain;
+}
+.co-bank-panel__qr-cap {
+    font-size: 12px;
+    color: #475569;
+}
+.co-bank-panel__info {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.co-bank-panel__info li {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 13px;
+}
+.co-bank-panel__info span  { color: #64748b; }
+.co-bank-panel__info strong { color: #1e3a8a; }
+.co-bank-panel__note {
+    margin: 12px 0 0;
+    font-size: 13px;
+    color: #475569;
+    line-height: 1.55;
+}
+@keyframes co-bank-fade {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+@media (max-width: 560px) {
+    .co-bank-panel__grid { grid-template-columns: 1fr; }
+    .co-bank-panel__qr   { align-items: flex-start; }
+}
+
 /* Right: order summary */
 .co-summary {
     background: #ffffff;

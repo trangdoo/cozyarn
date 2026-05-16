@@ -3,8 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
     <title>@yield('title', 'Quản trị — CozyYarn')</title>
     @vite(['resources/css/home.css', 'resources/js/public.js'])
+    {{-- Skin link được inject tự động bởi App\Http\Middleware\ApplyTheme. --}}
     @stack('head')
 </head>
 <body class="admin-body">

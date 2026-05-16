@@ -119,6 +119,61 @@ php artisan test
 - Chạy composer install --no-dev --optimize-autoloader và npm run build.
 - Thiết lập cache config: php artisan config:cache, route: php artisan route:cache, views: php artisan view:cache.
 
+16) Triển khai bằng Docker (khuyến nghị)
+
+Yêu cầu: Docker Desktop / Docker Engine + Compose plugin.
+
+```bash
+# Build image + chạy stack (app php-fpm, nginx, mysql)
+docker compose up -d --build
+
+# Lần đầu: chạy migration + tạo storage link
+docker compose exec app php artisan key:generate
+docker compose exec app php artisan migrate --seed
+docker compose exec app php artisan storage:link
+
+# Mở trình duyệt
+# http://localhost:8080
+```
+
+Stack gồm 3 service (xem [docker-compose.yml](docker-compose.yml)):
+- `app`   — PHP 8.3 FPM + Composer/Node build sẵn (Dockerfile multi-stage)
+- `web`   — Nginx 1.27 alpine, cấu hình tại [docker/nginx.conf](docker/nginx.conf)
+- `db`    — MySQL 8.0, persist data ở volume `cozyarn-db`
+
+Để deploy lên VPS:
+```bash
+# Trên VPS đã có Docker
+git clone <repo>.git cozyarn && cd cozyarn/mycozyarn
+cp .env.example .env  # rồi sửa APP_URL, DB_*, SEPAY_* cho phù hợp
+docker compose up -d --build
+```
+
+17) Quản lý phiên bản
+- Phiên bản app trong file [VERSION](VERSION) (semver) — hiển thị ở footer admin sidebar.
+- Changelog đầy đủ trong [CHANGELOG.md](CHANGELOG.md).
+- Mỗi release đánh git tag: `git tag v1.0.0 && git push --tags`.
+- Helper `App\Support\AppVersion::full()` trả về `1.0.0 (build abc1234)`.
+
+18) Tùy biến giao diện (Skin)
+- 3 theme đăng ký sẵn trong [config/themes.php](config/themes.php): `cozy` (mặc định), `mint`, `night`.
+- Admin → "Giao diện" để đổi runtime.
+- Thêm skin mới:
+  1. Tạo `public/themes/{key}/skin.css`
+  2. Thêm `'{key}' => ['extends' => 'cozy', 'views-path' => 'themes/{key}', 'asset-path' => 'themes/{key}']` vào `config/themes.php`
+  3. Thêm metadata vào `App\Support\ThemeManager::META`
+  4. `php artisan theme:refresh-cache`
+
+19) Tùy biến chức năng (Plugin)
+- Plugin sống trong `app/Plugins/{Tên}/Plugin.php`, kế thừa `App\Plugin\Plugin`.
+- Đăng ký listener vào `App\Plugin\Hook` ở method `boot()`.
+- Admin → "Plugin" để bật/tắt. Trạng thái lưu `storage/app/plugins.json`.
+- Hook có sẵn:
+  - `home.top` (render) — chèn HTML lên đầu layout public.
+  - `checkout.payment_extra` (render) — chèn UI dưới mục payment ở checkout.
+  - `checkout.total` (filter) — biến đổi tổng tiền checkout (vd: chiết khấu).
+- 2 plugin mẫu: `WelcomeBanner`, `DiscountCode` — xem [app/Plugins/](app/Plugins/).
+
 ---
 
 Nếu bạn muốn, mình có thể:

@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // đang đăng nhập sau khi session đã được khởi động — đẩy user bị khoá
         // ra ngay lập tức, không cần đợi logout thủ công.
         $middleware->web(append: [
+            \App\Http\Middleware\ApplyTheme::class,
             \App\Http\Middleware\EnsureUserActive::class,
         ]);
 
@@ -22,7 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'admin' => \App\Http\Middleware\EnsureAdmin::class,
         ]);
 
-        // SePay gọi từ server ngoài, không có CSRF token — xác thực bằng HMAC trong controller.
+        // SePay gọi từ server ngoài, không có CSRF token — xác thực bằng Apikey header trong controller.
         $middleware->validateCsrfTokens(except: [
             'webhook/sepay',
         ]);

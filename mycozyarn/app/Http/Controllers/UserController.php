@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\User\UpdatePasswordRequest;
 use App\Http\Requests\User\UpdateProfileRequest;
+use App\Models\Order;
 use App\Services\UserService;
 use App\Support\Notifications;
 use App\Support\OrderTimeline;
@@ -81,6 +82,8 @@ class UserController extends Controller
 
         abort_unless($order, 404);
         abort_unless(($order['user_id'] ?? null) === Auth::id(), 403);
+
+        $order = $this->syncPaymentFromDb($order, $orders, $id);
 
         $timeline = OrderTimeline::compute($order);
 
@@ -264,5 +267,26 @@ class UserController extends Controller
         $mine   = array_filter($all, fn($o) => ($o['user_id'] ?? null) === $userId && $filter($o));
         uasort($mine, fn($a, $b) => strcmp($b['created_at'] ?? '', $a['created_at'] ?? ''));
         return $mine;
+    }
+
+    /**
+     * Đồng bộ payment_status của đơn từ DB (nguồn sự thật cho webhook SePay) sang
+     * session để UI hiển thị đúng trạng thái "đã thanh toán" ngay sau khi webhook chạy.
+     */
+    private function syncPaymentFromDb(array $order, array $orders, string $id): array
+    {
+        if (!ctype_digit($id)) {
+            return $order;
+        }
+        $dbOrder = Order::find((int) $id);
+        if (!$dbOrder) {
+            return $order;
+        }
+        if (($order['payment_status'] ?? null) !== $dbOrder->payment_status) {
+            $order['payment_status'] = $dbOrder->payment_status;
+            $orders[$id] = $order;
+            session(['orders' => $orders]);
+        }
+        return $order;
     }
 }

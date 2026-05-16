@@ -1,0 +1,17 @@
+.git
+.idea
+.vscode
+node_modules
+vendor
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+storage/app/public/*
+public/build
+.env
+.env.*
+*.md
+!CHANGELOG.md
+tests
+phpunit.xml

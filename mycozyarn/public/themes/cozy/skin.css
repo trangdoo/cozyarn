@@ -1,0 +1,6 @@
+/*
+ * Theme: Cozy Pink — đây là theme MẶC ĐỊNH của shop.
+ * Mọi style nền tảng đã có trong resources/css/home.css (compile qua Vite),
+ * nên file này cố ý để rỗng. Giữ file để Theme::url('skin.css') luôn resolve
+ * (kể cả khi theme con như mint/night fallback ngược về cozy).
+ */

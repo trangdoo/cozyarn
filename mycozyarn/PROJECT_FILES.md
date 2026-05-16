@@ -129,9 +129,3 @@ Gợi ý cấu trúc code và chuẩn đặt tên
 Lưu ý đặc biệt trong repo này
 - Dự án đã tách `Interfaces`, `Repositories`, `Services` — tuân thủ pattern này để giữ code testable và dễ thay thế implementation.
 - Nếu muốn thay đổi logic data access, chỉnh trong repository, không chỉnh controller.
-
-Muốn mình làm tiếp gì?
-- Mình có thể sinh template sẵn cho `Interface` + `Repository` + `Service` + `Controller` cho một entity mới (ví dụ `Product`).
-- Hoặc mở rộng tài liệu chi tiết cho từng file cụ thể (ví dụ giải thích nội dung từng file trong `app/Repositories`).
-
-File này được tạo tự động; nếu bạn muốn tôi tạo template code cho một entity, nói tên entity và mình sẽ sinh các file mẫu.

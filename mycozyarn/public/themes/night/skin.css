@@ -1,0 +1,55 @@
+/*
+ * Theme: Night Mode (chế độ tối)
+ *
+ * Chiến lược: dùng filter `invert + hue-rotate(180deg)` lên body — trick dark-mode
+ * cổ điển khi không có CSS variables. Toàn bộ background sáng → tối, text tối → sáng,
+ * hue xoay 180° giữ lại "cảm giác màu" tương đối (đỏ vẫn đỏ, xanh vẫn xanh).
+ *
+ * Ảnh / video / SVG được khôi phục bằng filter ngược lại để không bị âm bản.
+ */
+
+html {
+    background: #14101a !important;
+}
+
+body {
+    filter: invert(0.92) hue-rotate(180deg);
+    background: #ece6f0 !important;  /* sau invert sẽ thành #131a0f-ish, gần đen */
+}
+
+/* Khôi phục ảnh / video / picture / element gắn data-no-filter */
+body img,
+body video,
+body picture,
+body [data-no-filter] {
+    filter: invert(1) hue-rotate(180deg);
+}
+
+/* Một số element đã có nền tối từ trước (vd: site-footer) sẽ bị invert thành sáng —
+   force chúng giữ tối lại bằng cách invert thêm 1 lần (= không invert). */
+.site-footer,
+.admin-sidebar,
+pre,
+code[class*="hljs"] {
+    filter: invert(1) hue-rotate(180deg);
+}
+
+/* Điểm nhấn theme */
+.section-chip,
+.badge,
+.status-pill {
+    background: #2a1e2e !important;
+    color: #f0c0d0 !important;
+    border-color: #4a3550 !important;
+    filter: invert(1) hue-rotate(180deg) !important;
+}
+
+.cart-btn--primary,
+.btn-primary,
+button.cart-btn--primary,
+.shop-btn--primary {
+    background: linear-gradient(135deg, #c87fa3 0%, #e8a4c1 100%) !important;
+    color: #1a1424 !important;
+    border-color: #c87fa3 !important;
+    filter: invert(1) hue-rotate(180deg) !important;
+}

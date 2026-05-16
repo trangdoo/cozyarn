@@ -1,0 +1,59 @@
+/*
+ * Theme: Mint Garden
+ *
+ * Chiến lược: home.css gốc ~11.700 dòng với 25+ shade hồng-kem hard-code
+ * (không dùng CSS variables). Thay vì viết lại file lớn, ta:
+ *
+ *   1) Dùng CSS filter để xoay (hue-rotate) toàn bộ palette từ hồng → xanh.
+ *      Tác động lên MỌI element nhận màu → instant skin change toàn site.
+ *   2) Khôi phục ảnh / video / SVG sản phẩm bằng filter ngược để không lệch màu.
+ *   3) Force vài selector chính (button, chip, admin nav) cho tone chuẩn.
+ */
+
+html {
+    background: #f4faf6 !important;
+}
+
+body {
+    filter: hue-rotate(135deg) saturate(.85);
+    background: #f4faf6 !important;
+}
+
+/* Trả màu gốc cho ảnh / video / picture / svg gắn data-no-filter */
+body img,
+body video,
+body picture,
+body [data-no-filter] {
+    filter: hue-rotate(-135deg) saturate(1.176);
+}
+
+/* ───────── Override điểm nhấn (filter:none để không bị lệch tone 2 lần) ───────── */
+.section-chip,
+.badge,
+.status-pill {
+    background: #d4f0dd !important;
+    color: #2d5a45 !important;
+    border-color: #b7e0c5 !important;
+    filter: none !important;
+}
+
+.cart-btn--primary,
+.btn-primary,
+button.cart-btn--primary,
+.shop-btn--primary {
+    background: linear-gradient(135deg, #3d7a52 0%, #5fa676 100%) !important;
+    color: #fff !important;
+    border-color: #3d7a52 !important;
+    filter: none !important;
+}
+
+.admin-nav__item.is-active {
+    background: #d4f0dd !important;
+    color: #2d5a45 !important;
+    filter: none !important;
+}
+
+.admin-sidebar__brand strong {
+    color: #3d7a52 !important;
+    filter: none !important;
+}
