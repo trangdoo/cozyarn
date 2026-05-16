@@ -114,19 +114,17 @@ class WebHookController
         }
 
         $amount = (int) ($data['transferAmount'] ?? 0);
+        $order  = Order::find($orderId);
+        if (!$order || (int) $order->total_amount > $amount) {
+            // Đơn không tồn tại hoặc tiền chuyển thiếu → không flip paid.
+            return;
+        }
 
-        $affected = Order::where('id', $orderId)
-            ->where('payment_status', 'pending')
-            ->where('total_amount', '<=', $amount)
-            ->update([
-                'payment_status' => 'paid',
-                'updated_at'     => now(),
-            ]);
+        // Flip pending → paid + push history qua OrderStore (chỉ true ở lần đầu,
+        // tránh trùng khi SePay retry cùng giao dịch).
+        $isFirstPaid = \App\Support\OrderStore::markPaid($orderId);
 
-        // Chỉ push admin inbox khi update thực sự flip pending → paid (affected > 0).
-        // Tránh trùng lặp khi webhook retry cùng giao dịch.
-        if ($affected > 0) {
-            $order = Order::find($orderId);
+        if ($isFirstPaid) {
             AdminInbox::push([
                 'type'    => 'order_paid',
                 'title'   => "Đơn #DH{$orderId} đã thanh toán",
@@ -139,7 +137,7 @@ class WebHookController
                     'order_id' => $orderId,
                     'payment'  => 'bank',
                     'amount'   => $amount,
-                    'total'    => $order->total_amount ?? null,
+                    'total'    => (int) $order->total_amount,
                 ],
             ]);
         }

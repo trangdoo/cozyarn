@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Models\Order;
 use App\Support\AdminInbox;
+use App\Support\OrderStore;
 use App\Support\OrderTimeline;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -68,20 +69,13 @@ class OrderController extends Controller
 
     public function show(string $id)
     {
-        // Admin mở chi tiết đơn → đảm bảo notification của đơn này đã được đánh dấu đọc
-        // (markTypeRead trong index() đã quét chung nhưng nếu admin vào trực tiếp link
-        // từ email/inbox sidebar thì index() chưa chạy).
         AdminInbox::markTypeRead(['order_new', 'order_paid']);
 
-        $orders = session('orders', []);
-        $order  = $orders[$id] ?? null;
+        $order = OrderStore::find($id);
         abort_unless($order !== null, 404);
-
-        $order = $this->syncPaymentFromDb($order, $orders, $id);
 
         $timeline = OrderTimeline::compute($order);
 
-        // Tìm customer info: từ user_id + đơn hàng khác
         $customer = null;
         if (!empty($order['user_id'])) {
             $customer = \App\Models\User::find($order['user_id']);
@@ -162,55 +156,37 @@ class OrderController extends Controller
 
     public function approveCancel(string $id)
     {
-        $orders = session('orders', []);
-        abort_unless(isset($orders[$id]), 404);
-
-        $stage = $this->stageOf($orders[$id]);
-        if (!\in_array($stage, ['pending', 'placed', 'confirmed'], true)) {
-            return back()->with('cart_flash', 'Đơn đã giao cho vận chuyển, không thể duyệt huỷ.');
-        }
-
-        $orders[$id] = $this->pushHistory($orders[$id], 'cancelled', 'Admin duyệt huỷ đơn');
-        $orders[$id]['status']       = 'cancelled';
-        $orders[$id]['cancelled_at'] = now()->toDateTimeString();
-        session(['orders' => $orders]);
-
-        return back()->with('cart_flash', 'Đã duyệt huỷ đơn.');
+        $by = auth()->user()->name ?? 'Admin';
+        $ok = OrderStore::transition($id, 'cancelled',
+            ['pending', 'placed', 'confirmed'], $by, 'Admin duyệt huỷ đơn');
+        return back()->with('cart_flash', $ok
+            ? 'Đã duyệt huỷ đơn.'
+            : 'Đơn đã giao cho vận chuyển, không thể duyệt huỷ.');
     }
 
     public function approveReturn(string $id)
     {
-        $orders = session('orders', []);
-        abort_unless(isset($orders[$id]), 404);
-        if (($orders[$id]['status'] ?? '') !== 'return_requested') {
-            return back()->with('cart_flash', 'Đơn không ở trạng thái yêu cầu trả hàng.');
-        }
-
-        $orders[$id] = $this->pushHistory($orders[$id], 'returned', 'Admin duyệt hoàn tiền');
-        $orders[$id]['status']             = 'returned';
-        $orders[$id]['refunded_at']        = now()->toDateTimeString();
-        session(['orders' => $orders]);
-
-        return back()->with('cart_flash', 'Đã duyệt hoàn tiền cho khách.');
+        $by = auth()->user()->name ?? 'Admin';
+        $ok = OrderStore::transition($id, 'returned',
+            ['return_requested'], $by, 'Admin duyệt hoàn tiền');
+        return back()->with('cart_flash', $ok
+            ? 'Đã duyệt hoàn tiền cho khách.'
+            : 'Đơn không ở trạng thái yêu cầu trả hàng.');
     }
 
     public function rejectReturn(Request $request, string $id)
     {
         $reason = trim((string) $request->input('reason', ''));
-        $orders = session('orders', []);
-        abort_unless(isset($orders[$id]), 404);
-        if (($orders[$id]['status'] ?? '') !== 'return_requested') {
-            return back()->with('cart_flash', 'Đơn không ở trạng thái yêu cầu trả hàng.');
+        $by     = auth()->user()->name ?? 'Admin';
+        $note   = 'Admin từ chối trả hàng' . ($reason !== '' ? ': ' . $reason : '');
+        $ok = OrderStore::transition($id, 'delivered', ['return_requested'], $by, $note);
+
+        if ($ok && $reason !== '') {
+            Order::where('id', (int) $id)->update(['return_reason' => $reason]);
         }
-
-        $orders[$id] = $this->pushHistory($orders[$id], 'delivered',
-            'Admin từ chối trả hàng' . ($reason !== '' ? ': ' . $reason : ''));
-        $orders[$id]['status']           = 'delivered';
-        $orders[$id]['return_rejected_at'] = now()->toDateTimeString();
-        $orders[$id]['return_rejection']  = $reason ?: null;
-        session(['orders' => $orders]);
-
-        return back()->with('cart_flash', 'Đã từ chối yêu cầu trả hàng.');
+        return back()->with('cart_flash', $ok
+            ? 'Đã từ chối yêu cầu trả hàng.'
+            : 'Đơn không ở trạng thái yêu cầu trả hàng.');
     }
 
     public function updateStatus(Request $request, string $id)
@@ -220,12 +196,13 @@ class OrderController extends Controller
             'note'   => 'nullable|string|max:300',
         ]);
 
-        $orders = session('orders', []);
-        abort_unless(isset($orders[$id]), 404);
+        $order = Order::find((int) $id);
+        abort_unless($order, 404);
 
-        $orders[$id] = $this->pushHistory($orders[$id], $data['status'], $data['note'] ?? 'Admin cập nhật thủ công');
-        $orders[$id]['status'] = $data['status'];
-        session(['orders' => $orders]);
+        $by   = auth()->user()->name ?? 'Admin';
+        $from = (string) $order->status;
+        OrderStore::pushHistory($id, $from, $data['status'], $by, $data['note'] ?? 'Admin cập nhật thủ công');
+        $order->update(['status' => $data['status']]);
 
         return back()->with('cart_flash', 'Đã cập nhật trạng thái.');
     }
@@ -235,40 +212,27 @@ class OrderController extends Controller
     public function bulkConfirm(Request $request)
     {
         $data = $request->validate(['ids' => 'required|array|min:1', 'ids.*' => 'string']);
-        $orders = session('orders', []);
-        $n = 0;
+        $by = auth()->user()->name ?? 'Admin';
+        $n  = 0;
         foreach ($data['ids'] as $id) {
-            if (!isset($orders[$id])) continue;
-            $stage = $this->stageOf($orders[$id]);
-            if (!\in_array($stage, ['pending', 'placed'], true)) continue;
-            $orders[$id] = $this->pushHistory($orders[$id], 'confirmed', 'Bulk confirm');
-            $orders[$id]['status'] = 'confirmed';
-            $n++;
+            if (OrderStore::transition($id, 'confirmed', ['pending', 'placed'], $by, 'Bulk confirm')) {
+                $n++;
+            }
         }
-        session(['orders' => $orders]);
         return back()->with('cart_flash', "Đã xác nhận {$n} đơn.");
     }
 
     public function bulkDelete(Request $request)
     {
         $data = $request->validate(['ids' => 'required|array|min:1', 'ids.*' => 'string']);
-        $orders = session('orders', []);
-        $n = 0;
-        foreach ($data['ids'] as $id) {
-            if (isset($orders[$id])) {
-                unset($orders[$id]);
-                $n++;
-            }
-        }
-        session(['orders' => $orders]);
+        $intIds = array_map('intval', $data['ids']);
+        $n = Order::whereIn('id', $intIds)->delete();
         return back()->with('cart_flash', "Đã xoá {$n} đơn.");
     }
 
     public function destroy(string $id)
     {
-        $orders = session('orders', []);
-        unset($orders[$id]);
-        session(['orders' => $orders]);
+        Order::where('id', (int) $id)->delete();
         return redirect()->route('admin.orders.index')->with('cart_flash', 'Đã xoá đơn.');
     }
 
@@ -351,28 +315,7 @@ class OrderController extends Controller
 
     private function allOrders(): array
     {
-        return array_values(session('orders', []));
-    }
-
-    /**
-     * Đồng bộ payment_status từ DB (nguồn sự thật cho webhook SePay) sang session
-     * để admin nhìn đúng trạng thái thanh toán ngay khi webhook vừa cập nhật.
-     */
-    private function syncPaymentFromDb(array $order, array $orders, string $id): array
-    {
-        if (!ctype_digit($id)) {
-            return $order;
-        }
-        $dbOrder = Order::find((int) $id);
-        if (!$dbOrder) {
-            return $order;
-        }
-        if (($order['payment_status'] ?? null) !== $dbOrder->payment_status) {
-            $order['payment_status'] = $dbOrder->payment_status;
-            $orders[$id] = $order;
-            session(['orders' => $orders]);
-        }
-        return $order;
+        return OrderStore::all();
     }
 
     private function stageOf(array $order): string
@@ -384,32 +327,11 @@ class OrderController extends Controller
 
     private function transition(string $id, string $to, array $allowedFrom, string $label)
     {
-        $orders = session('orders', []);
-        abort_unless(isset($orders[$id]), 404);
-
-        $stage = $this->stageOf($orders[$id]);
-        if (!\in_array($stage, $allowedFrom, true)) {
-            return back()->with('cart_flash', "Không thể chuyển từ '{$stage}' sang '{$to}'.");
-        }
-
-        $orders[$id] = $this->pushHistory($orders[$id], $to, $label);
-        $orders[$id]['status'] = $to;
-        session(['orders' => $orders]);
-        return back()->with('cart_flash', $label);
-    }
-
-    private function pushHistory(array $order, string $toStatus, string $note): array
-    {
-        $history = $order['status_history'] ?? [];
-        $history[] = [
-            'from' => $this->stageOf($order),
-            'to'   => $toStatus,
-            'by'   => auth()->user()->name ?? 'Admin',
-            'at'   => now()->toDateTimeString(),
-            'note' => $note,
-        ];
-        $order['status_history'] = $history;
-        return $order;
+        $by = auth()->user()->name ?? 'Admin';
+        $ok = OrderStore::transition($id, $to, $allowedFrom, $by, $label);
+        return back()->with('cart_flash', $ok
+            ? $label
+            : "Không thể chuyển sang '{$to}' (sai trạng thái nguồn).");
     }
 
     private function computeStats(array $orders): array

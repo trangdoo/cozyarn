@@ -5,11 +5,10 @@ namespace App\Http\Controllers;
 use App\Http\Requests\Order\BuyNowRequest;
 use App\Http\Requests\Order\CreateOrderRequest;
 use App\Http\Requests\Order\StartCheckoutRequest;
-use App\Models\Order;
 use App\Support\AdminInbox;
 use App\Support\Cart;
+use App\Support\OrderStore;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
 
 class CheckoutController
 {
@@ -81,7 +80,6 @@ class CheckoutController
         [$subtotal, $shippingFee, $total] = $this->calcTotals($selected);
 
         // HOOK plugin: cho phép plugin (vd: DiscountCode) chỉnh lại tổng tiền checkout.
-        // Context truyền vào: code (mã giảm giá user nhập), subtotal, shippingFee, items.
         $code     = trim((string) $request->input('discount_code', ''));
         $newTotal = (int) \App\Plugin\Hook::filter('checkout.total', $total, [
             'code'        => $code,
@@ -92,48 +90,21 @@ class CheckoutController
         $discount = max(0, $total - $newTotal);
         $total    = $newTotal;
 
-        // Ghi đơn vào DB trước để lấy id số (numeric) — id này là "code" mà SePay sẽ
-        // gửi về trong webhook (xem App\Http\Controllers\WebHookController::maybeMarkOrderPaid).
-        // Đơn hàng chi tiết (items, customer info) vẫn nằm trong session (mô hình demo
-        // hiện tại); DB chỉ giữ tổng tiền + trạng thái thanh toán đủ để webhook match được.
-        $orderModel = DB::transaction(function () use ($data, $total) {
-            return Order::create([
-                'user_id'          => auth()->id(),
-                'total_amount'     => $total,
-                'shipping_address' => trim($data['address'] . ', ' . $data['district'] . ', ' . $data['province'], ', '),
-                'payment_method'   => $data['payment'],
-                'payment_status'   => $data['payment'] === 'cod' ? 'pending' : 'pending',
-                'status'           => 'pending',
-                'note'             => $data['note'] ?? null,
-            ]);
-        });
-
+        // Persist toàn bộ order + items + customer info vào DB qua OrderStore.
+        // Single source of truth — admin/user các session khác đều thấy được.
+        $orderModel = OrderStore::create(
+            (int) auth()->id(),
+            $data,
+            $selected,
+            [
+                'subtotal'      => $subtotal,
+                'shippingFee'   => $shippingFee,
+                'discount'      => $discount,
+                'discount_code' => $discount > 0 ? $code : null,
+                'total'         => $total,
+            ],
+        );
         $orderId = (string) $orderModel->id;
-
-        $order = [
-            'id'             => $orderId,
-            'items'          => array_values($selected),
-            'subtotal'       => $subtotal,
-            'shippingFee'    => $shippingFee,
-            'discount'       => $discount,
-            'discount_code'  => $discount > 0 ? $code : '',
-            'total'          => $total,
-            'name'           => $data['name'],
-            'phone'          => $data['phone'],
-            'province'       => $data['province'],
-            'district'       => $data['district'],
-            'address'        => $data['address'],
-            'note'           => $data['note'] ?? '',
-            'payment'        => $data['payment'],
-            'payment_status' => 'pending',
-            'status'         => 'pending',
-            'created_at'     => now()->toDateTimeString(),
-            'user_id'        => auth()->id(),
-        ];
-
-        $orders = session('orders', []);
-        $orders[$orderId] = $order;
-        session(['orders' => $orders]);
 
         foreach ($keys as $k) {
             Cart::remove($k);
@@ -169,11 +140,8 @@ class CheckoutController
     /** Trang QR riêng — chỉ cho bank. Tự chuyển sang success khi đã paid. */
     public function pay(string $id)
     {
-        $orders = session('orders', []);
-        $order  = $orders[$id] ?? null;
+        $order = OrderStore::findForUser($id, (int) auth()->id());
         abort_unless($order, 404);
-
-        $order = $this->syncPaymentFromDb($order, $orders, $id);
 
         // COD/khác hoặc đã thanh toán → không cần ở trang QR nữa.
         if (($order['payment'] ?? '') !== 'bank' || ($order['payment_status'] ?? 'pending') === 'paid') {
@@ -195,12 +163,10 @@ class CheckoutController
     /** AJAX poll: trả về trạng thái thanh toán hiện tại để client tự redirect. */
     public function payStatus(string $id): JsonResponse
     {
-        $orders = session('orders', []);
-        $order  = $orders[$id] ?? null;
+        $order = OrderStore::findForUser($id, (int) auth()->id());
         if (!$order) {
             return response()->json(['ok' => false], 404);
         }
-        $order = $this->syncPaymentFromDb($order, $orders, $id);
         $status = $order['payment_status'] ?? 'pending';
         return response()->json([
             'ok'             => true,
@@ -238,11 +204,8 @@ class CheckoutController
     /** Bước 4: hiện thông báo đặt hàng thành công. */
     public function success(string $id)
     {
-        $orders = session('orders', []);
-        $order  = $orders[$id] ?? null;
+        $order = OrderStore::findForUser($id, (int) auth()->id());
         abort_unless($order, 404);
-
-        $order = $this->syncPaymentFromDb($order, $orders, $id);
 
         // Bank chưa thanh toán → đẩy về trang QR thay vì hiển thị "đặt hàng thành công"
         // (vì giao dịch chưa hoàn tất). Sau khi webhook flip status=paid, user sẽ được
@@ -268,27 +231,6 @@ class CheckoutController
         $freeShip    = $subtotal >= self::FREE_SHIP_THRESHOLD || $qtySum >= self::FREE_SHIP_QTY;
         $shippingFee = $freeShip ? 0 : self::SHIPPING_FEE;
         return [$subtotal, $shippingFee, $subtotal + $shippingFee];
-    }
-
-    /**
-     * Đồng bộ payment_status từ DB sang session khi đơn được webhook (SePay) cập nhật.
-     * Nếu user xem trang success sau khi đã chuyển khoản → reflect "paid" lên UI.
-     */
-    private function syncPaymentFromDb(array $order, array $orders, string $id): array
-    {
-        if (!ctype_digit($id)) {
-            return $order;
-        }
-        $dbOrder = Order::find((int) $id);
-        if (!$dbOrder) {
-            return $order;
-        }
-        if (($order['payment_status'] ?? null) !== $dbOrder->payment_status) {
-            $order['payment_status'] = $dbOrder->payment_status;
-            $orders[$id] = $order;
-            session(['orders' => $orders]);
-        }
-        return $order;
     }
 
     /**

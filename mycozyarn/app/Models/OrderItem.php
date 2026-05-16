@@ -9,17 +9,23 @@ class OrderItem extends Model
     protected $fillable = [
         'order_id',
         'product_id',
-        'quantity',
-        'price',
+        'category_slug', 'product_slug',
+        'name', 'image',
+        'variant', 'size',
+        'item_key',
+        'quantity', 'price',
     ];
 
-    // OrderItem thuộc về Order
+    protected $casts = [
+        'price'    => 'decimal:2',
+        'quantity' => 'integer',
+    ];
+
     public function order()
     {
         return $this->belongsTo(Order::class);
     }
 
-    // OrderItem thuộc về Product
     public function product()
     {
         return $this->belongsTo(Product::class);

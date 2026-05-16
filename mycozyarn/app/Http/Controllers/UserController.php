@@ -7,6 +7,7 @@ use App\Http\Requests\User\UpdateProfileRequest;
 use App\Models\Order;
 use App\Services\UserService;
 use App\Support\Notifications;
+use App\Support\OrderStore;
 use App\Support\OrderTimeline;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -77,13 +78,8 @@ class UserController extends Controller
 
     public function orderShow(string $id)
     {
-        $orders = session('orders', []);
-        $order  = $orders[$id] ?? null;
-
+        $order = OrderStore::findForUser($id, (int) Auth::id());
         abort_unless($order, 404);
-        abort_unless(($order['user_id'] ?? null) === Auth::id(), 403);
-
-        $order = $this->syncPaymentFromDb($order, $orders, $id);
 
         $timeline = OrderTimeline::compute($order);
 
@@ -122,23 +118,14 @@ class UserController extends Controller
 
     public function confirmReceived(string $id)
     {
-        $orders = session('orders', []);
-        $order  = $orders[$id] ?? null;
-
+        $order = OrderStore::findForUser($id, (int) Auth::id());
         abort_unless($order, 404);
-        abort_unless(($order['user_id'] ?? null) === Auth::id(), 403);
 
-        $stageKey = OrderTimeline::currentKey($order);
-        if ($stageKey !== 'delivered') {
+        $userName = Auth::user()->name ?? 'Khách';
+        $ok = OrderStore::transition($id, 'received', ['delivered'], $userName, 'Khách xác nhận đã nhận hàng');
+        if (!$ok) {
             return back()->with('cart_flash', 'Chỉ có thể xác nhận khi đơn đã giao thành công.');
         }
-        if (\in_array($order['status'] ?? '', ['received', 'returned', 'return_requested', 'cancelled'], true)) {
-            return back()->with('cart_flash', 'Đơn này không thể xác nhận nhận hàng.');
-        }
-
-        $orders[$id]['status']       = 'received';
-        $orders[$id]['received_at']  = now()->toDateTimeString();
-        session(['orders' => $orders]);
 
         Notifications::push([
             'id'      => "ORDER-{$id}-received",
@@ -155,22 +142,20 @@ class UserController extends Controller
 
     public function cancelOrder(Request $request, string $id)
     {
-        $orders = session('orders', []);
-        $order  = $orders[$id] ?? null;
-
+        $order = OrderStore::findForUser($id, (int) Auth::id());
         abort_unless($order, 404);
-        abort_unless(($order['user_id'] ?? null) === Auth::id(), 403);
 
-        $stageKey = OrderTimeline::currentKey($order);
-        if (!\in_array($stageKey, ['placed', 'pending', 'confirmed'], true)) {
+        $reason   = trim((string) $request->input('reason', ''));
+        $userName = Auth::user()->name ?? 'Khách';
+        $note     = 'Khách tự huỷ' . ($reason !== '' ? ': ' . $reason : '');
+        $ok = OrderStore::transition($id, 'cancelled', ['placed', 'pending', 'confirmed'], $userName, $note);
+        if (!$ok) {
             return back()->with('cart_flash', 'Đơn đã chuyển sang vận chuyển, không thể huỷ.');
         }
 
-        $reason = trim((string) $request->input('reason', ''));
-        $orders[$id]['status']         = 'cancelled';
-        $orders[$id]['cancelled_at']   = now()->toDateTimeString();
-        $orders[$id]['cancel_reason']  = $reason !== '' ? $reason : 'Không có lý do cụ thể';
-        session(['orders' => $orders]);
+        Order::where('id', (int) $id)->update([
+            'cancel_reason' => $reason !== '' ? $reason : 'Không có lý do cụ thể',
+        ]);
 
         Notifications::push([
             'id'      => "ORDER-{$id}-cancelled",
@@ -187,11 +172,8 @@ class UserController extends Controller
 
     public function requestReturn(Request $request, string $id)
     {
-        $orders = session('orders', []);
-        $order  = $orders[$id] ?? null;
-
+        $order = OrderStore::findForUser($id, (int) Auth::id());
         abort_unless($order, 404);
-        abort_unless(($order['user_id'] ?? null) === Auth::id(), 403);
 
         $stageKey = OrderTimeline::currentKey($order);
         if ($stageKey !== 'delivered') {
@@ -236,13 +218,15 @@ class UserController extends Controller
         $video->move($dest, $videoName);
         $videoPath = "/uploads/returns/{$id}/{$videoName}";
 
-        $reason = trim((string) $request->input('reason', ''));
-        $orders[$id]['status']         = 'return_requested';
-        $orders[$id]['returned_at']    = now()->toDateTimeString();
-        $orders[$id]['return_reason']  = $reason !== '' ? $reason : 'Không có lý do cụ thể';
-        $orders[$id]['return_images']  = $imagePaths;
-        $orders[$id]['return_video']   = $videoPath;
-        session(['orders' => $orders]);
+        $reason   = trim((string) $request->input('reason', ''));
+        $userName = Auth::user()->name ?? 'Khách';
+        $note     = 'Khách yêu cầu trả hàng' . ($reason !== '' ? ': ' . $reason : '');
+        OrderStore::transition($id, 'return_requested', ['delivered'], $userName, $note);
+
+        Order::where('id', (int) $id)->update([
+            'return_reason'   => $reason !== '' ? $reason : 'Không có lý do cụ thể',
+            'return_evidence' => ['images' => $imagePaths, 'video' => $videoPath],
+        ]);
 
         Notifications::push([
             'id'      => "ORDER-{$id}-return",
@@ -258,35 +242,13 @@ class UserController extends Controller
     }
 
     /**
-     * Lọc đơn của user hiện tại theo callback, sắp xếp mới → cũ.
+     * Lọc đơn của user hiện tại theo callback (vẫn nhận shape array để giữ ngữ nghĩa cũ),
+     * sắp xếp mới → cũ. Data lấy thẳng từ DB qua OrderStore.
      */
     private function filterUserOrders(callable $filter): array
     {
-        $userId = Auth::id();
-        $all    = session('orders', []);
-        $mine   = array_filter($all, fn($o) => ($o['user_id'] ?? null) === $userId && $filter($o));
-        uasort($mine, fn($a, $b) => strcmp($b['created_at'] ?? '', $a['created_at'] ?? ''));
+        $mine = array_filter(OrderStore::forUser((int) Auth::id()), $filter);
+        // OrderStore::forUser đã sort desc theo created_at, không cần sort lại.
         return $mine;
-    }
-
-    /**
-     * Đồng bộ payment_status của đơn từ DB (nguồn sự thật cho webhook SePay) sang
-     * session để UI hiển thị đúng trạng thái "đã thanh toán" ngay sau khi webhook chạy.
-     */
-    private function syncPaymentFromDb(array $order, array $orders, string $id): array
-    {
-        if (!ctype_digit($id)) {
-            return $order;
-        }
-        $dbOrder = Order::find((int) $id);
-        if (!$dbOrder) {
-            return $order;
-        }
-        if (($order['payment_status'] ?? null) !== $dbOrder->payment_status) {
-            $order['payment_status'] = $dbOrder->payment_status;
-            $orders[$id] = $order;
-            session(['orders' => $orders]);
-        }
-        return $order;
     }
 }
