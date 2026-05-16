@@ -240,8 +240,8 @@ Sau khi `php artisan migrate --seed`, các tài khoản sau được tạo sẵn
 
 ## 10. Link demo
 
-- **Video demo (Google Drive / YouTube):** []\ `https://youtu.be/Ph4yXPI2Ie4?si=fEPmbw5qV3FuccOn`
-- **Bản deploy online:**  (vd: `https://web.tuvandaihoc.com`)_
+- **Video demo (Google Drive / YouTube):** `https://youtu.be/Ph4yXPI2Ie4?si=fEPmbw5qV3FuccOn`
+- **Bản deploy online:**  `https://web.tuvandaihoc.com` 
 
 ---
 
